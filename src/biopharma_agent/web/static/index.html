@@ -1,0 +1,301 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Biopharma Agent Workbench</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand-mark">BA</div>
+          <div>
+            <h1>Biopharma Agent</h1>
+            <p>产业与资本市场情报工作台</p>
+          </div>
+        </div>
+        <nav class="nav">
+          <button class="nav-item active" data-panel="document">文档分析</button>
+          <button class="nav-item" data-panel="inbox">文档收件箱</button>
+          <button class="nav-item" data-panel="runs">运行监控</button>
+          <button class="nav-item" data-panel="review">人工复核</button>
+          <button class="nav-item" data-panel="market">时序分析</button>
+          <button class="nav-item" data-panel="settings">模型配置</button>
+        </nav>
+        <div class="status-block">
+          <span class="status-dot" id="health-dot"></span>
+          <span id="health-text">连接中</span>
+        </div>
+      </aside>
+
+      <main class="workspace">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Workbench</p>
+            <h2 id="panel-title">文档分析</h2>
+          </div>
+          <div class="toolbar">
+            <button id="sample-button" class="secondary">载入样例</button>
+            <button id="clear-button" class="ghost">清空</button>
+          </div>
+        </header>
+
+        <section class="panel active" id="panel-document">
+          <div class="split-layout">
+            <section class="editor-pane">
+              <label for="document-input">原始文本</label>
+              <textarea id="document-input" spellcheck="false"></textarea>
+              <div class="button-row">
+                <button id="deterministic-button">本地分析</button>
+                <button id="llm-button" class="secondary">LLM 抽取</button>
+                <button id="route-button" class="ghost">任务路由</button>
+              </div>
+            </section>
+
+            <section class="results-pane">
+              <div class="result-tabs">
+                <button class="tab active" data-result="overview">概览</button>
+                <button class="tab" data-result="json">JSON</button>
+              </div>
+              <div class="result-view active" id="result-overview">
+                <div class="metric-grid">
+                  <article class="metric">
+                    <span>情绪</span>
+                    <strong id="sentiment-label">-</strong>
+                  </article>
+                  <article class="metric">
+                    <span>风险等级</span>
+                    <strong id="risk-severity">-</strong>
+                  </article>
+                  <article class="metric">
+                    <span>关键词</span>
+                    <strong id="term-count">-</strong>
+                  </article>
+                </div>
+                <div class="section-title">摘要</div>
+                <p id="summary-output" class="summary-text">等待分析结果。</p>
+                <div class="section-title">关键词 / 事件</div>
+                <div id="chips" class="chips"></div>
+              </div>
+              <pre class="result-view json-view" id="result-json"></pre>
+            </section>
+          </div>
+        </section>
+
+        <section class="panel" id="panel-inbox">
+          <div class="inbox-toolbar">
+            <label>
+              历史结果文件
+              <input id="documents-path" value="data/processed/insights.jsonl" />
+            </label>
+            <label>
+              搜索
+              <input id="documents-query" placeholder="标题、来源、摘要" />
+            </label>
+            <label>
+              来源
+              <select id="documents-source-filter">
+                <option value="">全部</option>
+              </select>
+            </label>
+            <label>
+              事件
+              <select id="documents-event-filter">
+                <option value="">全部</option>
+              </select>
+            </label>
+            <label>
+              风险
+              <select id="documents-risk-filter">
+                <option value="">全部</option>
+              </select>
+            </label>
+            <label>
+              排序
+              <select id="documents-sort">
+                <option value="created_at:desc">时间降序</option>
+                <option value="created_at:asc">时间升序</option>
+                <option value="source:asc">来源</option>
+                <option value="event_type:asc">事件</option>
+                <option value="risk:desc">风险</option>
+              </select>
+            </label>
+            <button id="load-documents-button">刷新文档</button>
+          </div>
+          <div id="documents-count" class="table-count">0 条记录</div>
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>标题</th>
+                  <th>来源</th>
+                  <th>事件</th>
+                  <th>风险</th>
+                  <th>正文</th>
+                  <th>模型</th>
+                  <th>时间</th>
+                </tr>
+              </thead>
+              <tbody id="documents-table-body"></tbody>
+            </table>
+          </div>
+          <div class="pager">
+            <button id="documents-prev-button" class="ghost">上一页</button>
+            <span id="documents-page-label">第 1 页</span>
+            <button id="documents-next-button" class="ghost">下一页</button>
+          </div>
+          <section class="detail-pane" id="document-detail">
+            <div class="detail-empty">选择一条文档后显示详情。</div>
+          </section>
+          <div id="documents-list" class="record-list hidden"></div>
+        </section>
+
+        <section class="panel" id="panel-runs">
+          <div class="job-trigger">
+            <div class="inbox-toolbar">
+              <label>
+                抓取数据源
+                <select id="job-sources" multiple size="6"></select>
+              </label>
+              <label>
+                每源条数
+                <input id="job-limit" type="number" min="1" max="25" value="1" />
+              </label>
+              <label>
+                结果文件
+                <input id="job-output" value="data/processed/insights.jsonl" />
+              </label>
+            </div>
+            <div class="button-row">
+              <label class="inline-check">
+                <input id="job-analyze" type="checkbox" checked />
+                LLM 分析
+              </label>
+              <label class="inline-check">
+                <input id="job-fetch-details" type="checkbox" checked />
+                抓详情
+              </label>
+              <label class="inline-check">
+                <input id="job-clean-html" type="checkbox" checked />
+                清洗正文
+              </label>
+              <button id="trigger-fetch-button">触发抓取</button>
+            </div>
+            <pre id="job-output-json" class="json-view compact">等待触发。</pre>
+          </div>
+          <div class="inbox-toolbar">
+            <label>
+              运行日志文件
+              <input id="runs-path" value="data/runs/fetch_runs.jsonl" />
+            </label>
+            <button id="load-runs-button">刷新运行</button>
+          </div>
+          <div class="run-summary-grid">
+            <article class="metric compact">
+              <span>成功</span>
+              <strong id="runs-success">0</strong>
+            </article>
+            <article class="metric compact">
+              <span>失败</span>
+              <strong id="runs-failed">0</strong>
+            </article>
+            <article class="metric compact">
+              <span>最近状态</span>
+              <strong id="runs-latest-status">-</strong>
+            </article>
+            <article class="metric compact">
+              <span>最近完成</span>
+              <strong id="runs-latest-time">-</strong>
+            </article>
+          </div>
+          <div id="runs-count" class="table-count">0 条运行</div>
+          <div class="table-wrap">
+            <table class="data-table runs-table">
+              <thead>
+                <tr>
+                  <th>任务</th>
+                  <th>状态</th>
+                  <th>耗时</th>
+                  <th>来源</th>
+                  <th>结果</th>
+                  <th>完成时间</th>
+                </tr>
+              </thead>
+              <tbody id="runs-table-body"></tbody>
+            </table>
+          </div>
+          <div class="pager">
+            <button id="runs-prev-button" class="ghost">上一页</button>
+            <span id="runs-page-label">第 1 页</span>
+            <button id="runs-next-button" class="ghost">下一页</button>
+          </div>
+          <pre id="run-detail" class="json-view compact">选择一条运行后显示详情。</pre>
+        </section>
+
+        <section class="panel" id="panel-review">
+          <div class="form-grid">
+            <label>
+              文档 ID
+              <input id="feedback-document-id" value="manual-doc" />
+            </label>
+            <label>
+              复核人
+              <input id="feedback-reviewer" value="analyst" />
+            </label>
+            <label>
+              结论
+              <select id="feedback-decision">
+                <option value="accept">接受</option>
+                <option value="correct">修正</option>
+                <option value="reject">驳回</option>
+              </select>
+            </label>
+          </div>
+          <label for="feedback-comment">备注</label>
+          <textarea id="feedback-comment" class="short-textarea"></textarea>
+          <button id="feedback-button">提交反馈</button>
+          <pre id="feedback-output" class="json-view compact"></pre>
+          <div class="inbox-toolbar below">
+            <label>
+              反馈记录文件
+              <input id="feedback-path" value="data/feedback/reviews.jsonl" />
+            </label>
+            <button id="load-feedback-button" class="secondary">刷新反馈</button>
+          </div>
+          <div id="feedback-list" class="record-list"></div>
+        </section>
+
+        <section class="panel" id="panel-market">
+          <label for="series-input">数值序列</label>
+          <input id="series-input" value="1, 2, 3, 100" />
+          <button id="series-button">分析趋势</button>
+          <pre id="series-output" class="json-view compact"></pre>
+        </section>
+
+        <section class="panel" id="panel-settings">
+          <div class="settings-grid">
+            <article>
+              <span>Provider</span>
+              <strong id="config-provider">-</strong>
+            </article>
+            <article>
+              <span>Model</span>
+              <strong id="config-model">-</strong>
+            </article>
+            <article>
+              <span>Base URL</span>
+              <strong id="config-base-url">-</strong>
+            </article>
+            <article>
+              <span>API Key</span>
+              <strong id="config-api-key">-</strong>
+            </article>
+          </div>
+        </section>
+      </main>
+    </div>
+    <script src="/app.js"></script>
+  </body>
+</html>

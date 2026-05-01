@@ -1,0 +1,73 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: biopharma-agent-postgres
+    environment:
+      POSTGRES_DB: biopharma_agent
+      POSTGRES_USER: biopharma
+      POSTGRES_PASSWORD: biopharma
+    ports:
+      - "55432:5432"
+    volumes:
+      - biopharma_postgres_data:/var/lib/postgresql/data
+      - ./infra/postgres/schema.sql:/docker-entrypoint-initdb.d/001_schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U biopharma -d biopharma_agent"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  minio:
+    image: minio/minio:latest
+    container_name: biopharma-agent-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - biopharma_minio_data:/data
+
+  minio-init:
+    image: minio/mc:latest
+    container_name: biopharma-agent-minio-init
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c "
+      until mc alias set local http://minio:9000 minioadmin minioadmin; do sleep 2; done &&
+      mc mb --ignore-existing local/biopharma-raw
+      "
+
+  airflow:
+    image: apache/airflow:2.10.5-python3.11
+    container_name: biopharma-agent-airflow
+    profiles: ["airflow"]
+    depends_on:
+      - postgres
+      - minio
+    environment:
+      AIRFLOW__CORE__EXECUTOR: SequentialExecutor
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: sqlite:////opt/airflow/airflow.db
+      PYTHONPATH: /opt/airflow/project/src
+      BIOPHARMA_AIRFLOW_SOURCES: fda_press_releases
+      BIOPHARMA_AIRFLOW_LIMIT: "1"
+      BIOPHARMA_AIRFLOW_ANALYZE: "0"
+      BIOPHARMA_AIRFLOW_RUN_LOG: /opt/airflow/project/data/runs/airflow_fetch_runs.jsonl
+    volumes:
+      - ./:/opt/airflow/project
+      - ./infra/airflow/dags:/opt/airflow/dags
+    working_dir: /opt/airflow/project
+    command: >
+      bash -c "
+      airflow db migrate &&
+      airflow dags list &&
+      airflow dags test biopharma_fetch_sources 2026-05-01
+      "
+
+volumes:
+  biopharma_postgres_data:
+  biopharma_minio_data:
