@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -126,6 +127,15 @@ class LocalSourceStateStore:
         if not isinstance(previous, dict):
             previous = {}
 
+        collector = run.source.metadata.get("collector", "feed")
+        category = run.source.metadata.get("category", "")
+        enabled = bool(run.source.metadata.get("enabled", True))
+        diagnosis = classify_source_error(
+            run.error,
+            collector=collector,
+            status=run.status,
+            enabled=enabled,
+        )
         previous_seen = _string_list(previous.get("seen_document_ids", []))
         document_ids = _document_ids(run.documents or [])
         seen_document_ids = sorted({*previous_seen, *document_ids})
@@ -139,13 +149,14 @@ class LocalSourceStateStore:
         record = {
             "source": run.source.name,
             "kind": run.source.kind,
-            "collector": run.source.metadata.get("collector", "feed"),
-            "category": run.source.metadata.get("category", ""),
-            "enabled": run.source.metadata.get("enabled", True),
+            "collector": collector,
+            "category": category,
+            "enabled": enabled,
             "last_status": run.status,
             "last_started_at": _isoformat(run.started_at),
             "last_completed_at": _isoformat(run.completed_at),
             "last_error": run.error,
+            **diagnosis,
             "last_fetched": int(summary.get("fetched", 0) or 0),
             "last_selected": int(summary.get("selected", 0) or 0),
             "last_analyzed": int(summary.get("analyzed", 0) or 0),
@@ -228,16 +239,20 @@ def source_state_summary(
 
 
 def empty_source_state(source: SourceRef) -> dict[str, Any]:
+    collector = source.metadata.get("collector", "feed")
+    enabled = bool(source.metadata.get("enabled", True))
+    diagnosis = classify_source_error("", collector=collector, status="never_run", enabled=enabled)
     return {
         "source": source.name,
         "kind": source.kind,
-        "collector": source.metadata.get("collector", "feed"),
+        "collector": collector,
         "category": source.metadata.get("category", ""),
-        "enabled": source.metadata.get("enabled", True),
+        "enabled": enabled,
         "last_status": "never_run",
         "last_started_at": "",
         "last_completed_at": "",
         "last_error": "",
+        **diagnosis,
         "last_fetched": 0,
         "last_selected": 0,
         "last_analyzed": 0,
@@ -259,6 +274,7 @@ def _summary(items: list[dict[str, Any]]) -> dict[str, Any]:
     total_analyzed = sum(int(item.get("last_analyzed", 0) or 0) for item in items)
     total_skipped = sum(int(item.get("last_skipped_seen", 0) or 0) for item in items)
     total_seen = sum(int(item.get("seen_count", 0) or 0) for item in items)
+    failure_types = _failure_type_counts(items)
     return {
         "success": success,
         "failed": failed,
@@ -270,11 +286,110 @@ def _summary(items: list[dict[str, Any]]) -> dict[str, Any]:
         "last_analyzed": total_analyzed,
         "last_skipped_seen": total_skipped,
         "health_ratio": round(success / max(1, success + failed), 4),
+        "failure_types": failure_types,
     }
+
+
+def classify_source_error(
+    error: str,
+    *,
+    collector: str = "",
+    status: str = "",
+    enabled: bool = True,
+) -> dict[str, str]:
+    """Classify a source run failure and provide an operator hint."""
+
+    normalized = _normalize_error(error)
+    status_value = str(status or "").lower()
+    if not enabled:
+        return _diagnosis(
+            "disabled",
+            "info",
+            "Enable this source in source metadata before scheduling collection.",
+        )
+    if status_value != "failed" and not normalized:
+        return _diagnosis("none", "info", "")
+    if not normalized:
+        return _diagnosis(
+            "unknown",
+            "error",
+            "Check the run log for the source-specific traceback and retry with a small limit.",
+        )
+
+    collector_value = str(collector or "").lower()
+    if _matches(normalized, _RATE_LIMIT_PATTERNS):
+        return _diagnosis(
+            "rate_limit",
+            "warning",
+            "Reduce request rate, lower the fetch limit, or retry after the provider window resets.",
+        )
+    if _matches(normalized, _STORAGE_PATTERNS):
+        return _diagnosis(
+            "storage",
+            "error",
+            "Check Postgres, object storage, disk space, and write permissions before retrying.",
+        )
+    if _matches(normalized, _LLM_PATTERNS) or (
+        "provider" in normalized and collector_value not in {"feed", "html_listing"}
+    ):
+        return _diagnosis(
+            "llm",
+            "error",
+            "Check the LLM provider, model name, base URL, API key, and quota configuration.",
+        )
+    if _matches(normalized, _AUTH_PATTERNS):
+        return _diagnosis(
+            "auth",
+            "error",
+            "Verify credentials, API keys, and access permissions for this source.",
+        )
+    if _matches(normalized, _NETWORK_PATTERNS):
+        return _diagnosis(
+            "network",
+            "warning",
+            "Retry after confirming DNS, TLS, proxy, and remote service availability.",
+        )
+    if _matches(normalized, _PARSER_PATTERNS):
+        return _diagnosis(
+            "parser",
+            "warning",
+            "Review the source adapter selectors or parser assumptions against the latest response.",
+        )
+    return _diagnosis(
+        "unknown",
+        "error",
+        "Check the run log for the source-specific traceback and retry with a small limit.",
+    )
 
 
 def _document_ids(documents: list[RawDocument]) -> list[str]:
     return sorted({document.document_id for document in documents if document.document_id})
+
+
+def _failure_type_counts(items: list[dict[str, Any]]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for item in items:
+        failure_type = str(item.get("failure_type") or "none")
+        if failure_type == "none":
+            continue
+        counts[failure_type] = counts.get(failure_type, 0) + 1
+    return dict(sorted(counts.items()))
+
+
+def _diagnosis(failure_type: str, severity: str, hint: str) -> dict[str, str]:
+    return {
+        "failure_type": failure_type,
+        "failure_severity": severity,
+        "remediation_hint": hint,
+    }
+
+
+def _matches(value: str, patterns: tuple[re.Pattern[str], ...]) -> bool:
+    return any(pattern.search(value) for pattern in patterns)
+
+
+def _normalize_error(error: str) -> str:
+    return re.sub(r"\s+", " ", str(error or "")).strip().lower()
 
 
 def _string_list(value: object) -> list[str]:
@@ -289,3 +404,72 @@ def _isoformat(value: datetime) -> str:
     if value.tzinfo is None:
         value = value.replace(tzinfo=timezone.utc)
     return value.isoformat()
+
+
+_AUTH_PATTERNS = (
+    re.compile(r"\b(401|403)\b"),
+    re.compile(r"\bunauthori[sz]ed\b"),
+    re.compile(r"\bforbidden\b"),
+    re.compile(r"\bapi key\b"),
+    re.compile(r"\binvalid key\b"),
+    re.compile(r"\baccess denied\b"),
+)
+_RATE_LIMIT_PATTERNS = (
+    re.compile(r"\b429\b"),
+    re.compile(r"\brate[- ]?limit"),
+    re.compile(r"\btoo many requests\b"),
+    re.compile(r"\bquota exceeded\b"),
+    re.compile(r"\bthrottl"),
+)
+_NETWORK_PATTERNS = (
+    re.compile(r"\btimeout\b"),
+    re.compile(r"\btimed out\b"),
+    re.compile(r"\bdns\b"),
+    re.compile(r"\bconnection (reset|refused|aborted|closed)\b"),
+    re.compile(r"\bremote end closed\b"),
+    re.compile(r"\bunreachable\b"),
+    re.compile(r"\bssl\b"),
+    re.compile(r"\btls\b"),
+    re.compile(r"\bsocket\b"),
+    re.compile(r"\burlopen\b"),
+    re.compile(r"\bnetwork\b"),
+)
+_PARSER_PATTERNS = (
+    re.compile(r"\bparse\b"),
+    re.compile(r"\bjsondecode"),
+    re.compile(r"\bxml\b"),
+    re.compile(r"\brss\b"),
+    re.compile(r"\bhtml extraction\b"),
+    re.compile(r"\bunsupported feed\b"),
+    re.compile(r"\bselector\b"),
+    re.compile(r"\bunexpected format\b"),
+    re.compile(r"\bcould not extract\b"),
+    re.compile(r"\bmissing field\b"),
+    re.compile(r"\bmalformed\b"),
+    re.compile(r"\binvalid json\b"),
+)
+_LLM_PATTERNS = (
+    re.compile(r"\bllm\b"),
+    re.compile(r"\bopenai\b"),
+    re.compile(r"\bdeepseek\b"),
+    re.compile(r"\bmodel\b"),
+    re.compile(r"\bchat completions?\b"),
+    re.compile(r"\bcompletion\b"),
+    re.compile(r"\bcontext length\b"),
+    re.compile(r"\bprompt\b"),
+    re.compile(r"\btoken\b"),
+)
+_STORAGE_PATTERNS = (
+    re.compile(r"\bpostgres\b"),
+    re.compile(r"\bpsycopg\b"),
+    re.compile(r"\bdatabase\b"),
+    re.compile(r"\bminio\b"),
+    re.compile(r"\bs3\b"),
+    re.compile(r"\bbucket\b"),
+    re.compile(r"\bdisk\b"),
+    re.compile(r"\bfile system\b"),
+    re.compile(r"\bno space left\b"),
+    re.compile(r"\bpermission denied\b"),
+    re.compile(r"\barchive\b"),
+    re.compile(r"\bobject store\b"),
+)

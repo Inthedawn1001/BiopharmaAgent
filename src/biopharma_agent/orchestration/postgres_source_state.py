@@ -8,7 +8,7 @@ from datetime import datetime
 from typing import Any
 
 from biopharma_agent.contracts import RawDocument, SourceRef, utc_now
-from biopharma_agent.orchestration.source_state import SourceRunUpdate
+from biopharma_agent.orchestration.source_state import SourceRunUpdate, classify_source_error
 
 
 class PostgresSourceStateStore:
@@ -42,6 +42,7 @@ class PostgresSourceStateStore:
                         last_document_ids,
                         seen_document_ids,
                         consecutive_failures,
+                        payload,
                         updated_at
                     from source_states
                     order by source_name
@@ -71,6 +72,7 @@ class PostgresSourceStateStore:
                         last_document_ids,
                         seen_document_ids,
                         consecutive_failures,
+                        payload,
                         updated_at
                     from source_states
                     where source_name = %s
@@ -132,6 +134,15 @@ class PostgresSourceStateStore:
         document_ids = sorted({document.document_id for document in run.documents or [] if document.document_id})
         seen_document_ids = sorted({*previous_seen, *document_ids})
         summary = run.summary or {}
+        collector = run.source.metadata.get("collector", "feed")
+        category = run.source.metadata.get("category", "")
+        enabled = bool(run.source.metadata.get("enabled", True))
+        diagnosis = classify_source_error(
+            run.error,
+            collector=collector,
+            status=run.status,
+            enabled=enabled,
+        )
         consecutive_failures = int(previous.get("consecutive_failures", 0) or 0)
         consecutive_failures = 0 if run.status == "success" else consecutive_failures + 1
         updated_at = utc_now()
@@ -139,13 +150,14 @@ class PostgresSourceStateStore:
             "last_document_ids": document_ids,
             "seen_count": len(seen_document_ids),
             "summary": summary,
+            **diagnosis,
         }
         params = (
             run.source.name,
             run.source.kind,
-            run.source.metadata.get("collector", "feed"),
-            run.source.metadata.get("category", ""),
-            bool(run.source.metadata.get("enabled", True)),
+            collector,
+            category,
+            enabled,
             run.status,
             run.started_at,
             run.completed_at,
@@ -251,9 +263,20 @@ def _record_from_row(row: tuple[Any, ...]) -> dict[str, Any]:
         last_document_ids,
         seen_document_ids,
         consecutive_failures,
+        payload,
         updated_at,
     ) = row
     seen = _string_list(seen_document_ids)
+    payload_values = _payload_dict(payload)
+    diagnosis = {
+        **classify_source_error(
+            str(last_error or ""),
+            collector=str(collector or "feed"),
+            status=str(last_status or "never_run"),
+            enabled=bool(enabled),
+        ),
+        **_diagnosis_from_payload(payload_values),
+    }
     return {
         "source": source_name or "",
         "kind": kind or "",
@@ -264,16 +287,38 @@ def _record_from_row(row: tuple[Any, ...]) -> dict[str, Any]:
         "last_started_at": _iso_or_empty(last_started_at),
         "last_completed_at": _iso_or_empty(last_completed_at),
         "last_error": last_error or "",
+        **diagnosis,
         "last_fetched": int(last_fetched or 0),
         "last_selected": int(last_selected or 0),
         "last_analyzed": int(last_analyzed or 0),
         "last_skipped_seen": int(last_skipped_seen or 0),
         "last_document_ids": _string_list(last_document_ids),
         "seen_document_ids": seen,
-        "seen_count": len(seen),
+        "seen_count": int(payload_values.get("seen_count") or len(seen)),
         "consecutive_failures": int(consecutive_failures or 0),
         "updated_at": _iso_or_empty(updated_at),
     }
+
+
+def _payload_dict(value: object) -> dict[str, Any]:
+    if isinstance(value, dict):
+        return value
+    if isinstance(value, str) and value:
+        try:
+            decoded = json.loads(value)
+        except json.JSONDecodeError:
+            return {}
+        return decoded if isinstance(decoded, dict) else {}
+    return {}
+
+
+def _diagnosis_from_payload(payload: dict[str, Any]) -> dict[str, str]:
+    fields = {
+        "failure_type": str(payload.get("failure_type") or ""),
+        "failure_severity": str(payload.get("failure_severity") or ""),
+        "remediation_hint": str(payload.get("remediation_hint") or ""),
+    }
+    return {key: value for key, value in fields.items() if value}
 
 
 def _string_list(value: object) -> list[str]:

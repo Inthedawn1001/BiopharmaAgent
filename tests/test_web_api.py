@@ -201,9 +201,12 @@ class WebApiTest(unittest.TestCase):
             names = {item["source"]: item for item in data["items"]}
             self.assertIn("fda_press_releases", names)
             self.assertEqual(names["fda_press_releases"]["last_status"], "never_run")
+            self.assertEqual(names["fda_press_releases"]["failure_type"], "none")
+            self.assertEqual(names["fda_press_releases"]["failure_severity"], "info")
             self.assertEqual(data["backend"], "jsonl")
             self.assertIn("generated_at", data)
             self.assertIn("health_ratio", data["summary"])
+            self.assertIn("failure_types", data["summary"])
 
     def test_list_source_state_uses_postgres_backend(self):
         with patch.dict(

@@ -239,7 +239,7 @@ function renderSourceState(data) {
   if (!filteredRows.length) {
     const tr = document.createElement("tr");
     const td = document.createElement("td");
-    td.colSpan = 7;
+    td.colSpan = 8;
     td.textContent = rows.length ? "No sources match the current filters." : "No source state yet.";
     tr.appendChild(td);
     body.appendChild(tr);
@@ -250,6 +250,7 @@ function renderSourceState(data) {
     const tr = document.createElement("tr");
     tr.appendChild(sourceStateNameCell(row));
     tr.appendChild(statusCell(row.last_status || "never_run"));
+    tr.appendChild(sourceStateDiagnosisCell(row));
     tr.appendChild(textCell(String(row.seen_count ?? 0)));
     tr.appendChild(textCell(String(row.last_selected ?? 0)));
     tr.appendChild(textCell(String(row.last_analyzed ?? 0)));
@@ -278,7 +279,7 @@ function filterSourceStateRows(rows) {
     if (!query) {
       return true;
     }
-    return [row.source, row.category, row.kind, row.collector]
+    return [row.source, row.category, row.kind, row.collector, row.failure_type, row.remediation_hint]
       .filter(Boolean)
       .some((value) => String(value).toLowerCase().includes(query));
   });
@@ -312,9 +313,21 @@ function sourceStateNameCell(row) {
   title.textContent = row.source || "-";
   const subtext = document.createElement("div");
   subtext.className = "table-subtext";
-  const error = row.last_error ? ` · ${row.last_error}` : "";
-  subtext.textContent = `${row.collector || "feed"} · ${row.category || "-"}${error}`;
+  subtext.textContent = `${row.collector || "feed"} · ${row.category || "-"}`;
   td.append(title, subtext);
+  return td;
+}
+
+function sourceStateDiagnosisCell(row) {
+  const td = document.createElement("td");
+  const type = row.failure_type || "none";
+  const badge = document.createElement("span");
+  badge.className = `badge diagnosis-${type}`;
+  badge.textContent = type;
+  const hint = document.createElement("div");
+  hint.className = "table-subtext compact";
+  hint.textContent = row.remediation_hint || row.last_error || "-";
+  td.append(badge, hint);
   return td;
 }
 

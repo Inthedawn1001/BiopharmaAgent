@@ -23,6 +23,7 @@ class PostgresSourceStateTest(unittest.TestCase):
         )
 
         self.assertEqual(record["last_status"], "success")
+        self.assertEqual(record["failure_type"], "none")
         self.assertEqual(record["seen_document_ids"], ["doc-1"])
         self.assertEqual(store.seen_document_ids(source.name), {"doc-1"})
         executed_sql = "\n".join(sql for sql, _ in store.cursor.calls)
@@ -48,6 +49,9 @@ class PostgresSourceStateTest(unittest.TestCase):
 
         self.assertEqual(record["last_status"], "failed")
         self.assertEqual(record["last_error"], "rate limited")
+        self.assertEqual(record["failure_type"], "rate_limit")
+        self.assertEqual(record["failure_severity"], "warning")
+        self.assertIn("request rate", record["remediation_hint"])
         self.assertEqual(record["seen_document_ids"], ["sec-doc"])
         self.assertEqual(record["consecutive_failures"], 1)
 
@@ -121,6 +125,7 @@ class FakeSourceStateCursor:
                 params[13],
                 params[14],
                 params[15],
+                params[16],
                 params[17],
             )
             self.result = []
