@@ -57,6 +57,7 @@ Supported provider families in this MVP:
 - `gemini`: Gemini `generateContent` and embedding endpoints.
 - `ollama`: Local Ollama chat and embedding APIs.
 - `custom`: OpenAI-compatible defaults with configurable paths.
+- `smoke`: deterministic local provider for infrastructure validation without external API keys.
 
 ## Data Contract
 

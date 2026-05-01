@@ -17,6 +17,12 @@ export BIOPHARMA_RAW_ARCHIVE_S3_SECRET_ACCESS_KEY=minioadmin
 scripts/run_minio_smoke.sh
 ```
 
+For the combined PostgreSQL and MinIO smoke used by CI:
+
+```bash
+scripts/run_storage_smoke.sh
+```
+
 The smoke scripts use `PYTHON` when it is set; otherwise they prefer the active
 virtualenv, then `.venv/bin/python`, then `python3`.
 

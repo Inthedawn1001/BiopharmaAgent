@@ -180,8 +180,11 @@ PostgreSQL + MinIO + real collection full-stack smoke:
 
 ```bash
 python3 -m pip install "psycopg[binary]>=3" "boto3>=1.34"
+scripts/run_storage_smoke.sh
 scripts/run_full_stack_smoke.sh
 ```
+
+`run_storage_smoke.sh` starts or reuses PostgreSQL and MinIO, applies migrations, checks SQL storage, and verifies a MinIO object without touching external news sources. CI runs this script on push and pull request.
 
 `run_full_stack_smoke.sh` starts or reuses PostgreSQL and MinIO, applies the PostgreSQL migration, verifies SQL storage and S3-compatible raw archiving, fetches one real FDA press-release item, runs deterministic smoke-provider analysis, asserts a PostgreSQL insight row exists, and verifies the MinIO raw object with `head_object`. Set `PYTHON=/path/to/python` to choose the runtime; otherwise the script prefers the active virtualenv, then `.venv/bin/python`, then `python3`.
 
@@ -221,7 +224,8 @@ Then visit `http://127.0.0.1:8765`. The workbench includes document analysis, do
 
 Latest local verification on May 1, 2026:
 
-- Unit tests: `PYTHONPATH=src python -m unittest discover -s tests` -> 84 passed, 1 skipped
+- Unit tests: `PYTHONPATH=src python -m unittest discover -s tests` -> 85 passed, 1 skipped
+- Storage smoke: `scripts/run_storage_smoke.sh` -> PostgreSQL and MinIO checks passed without external news-source dependency
 - Full-stack smoke: `scripts/run_full_stack_smoke.sh` -> PostgreSQL migration checked, MinIO raw object verified, FDA real collection selected 1 document and analyzed 1 document
 - Airflow smoke: `scripts/run_airflow_smoke.sh` -> DAG loaded and latest run log entry succeeded with 1 selected document
 - Content hygiene: tracked files contain no Chinese text, real host name, real local user name, or committed API key

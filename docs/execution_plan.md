@@ -39,8 +39,9 @@
 ## Phase 4.1: Next Storage Work
 
 - Add integration tests against a real PostgreSQL service in CI or local Docker Compose.
-  (Local compose service and opt-in unittest are in place; CI wiring is still pending.)
+  (Local compose service, opt-in unittest, and CI storage smoke are in place.)
 - Add optional MinIO/S3 integration test that creates a bucket and writes a raw document.
+  (MinIO smoke is in place and included in CI storage smoke.)
 - Add migration runner/versioning instead of applying raw SQL manually.
   (`migrate-postgres` records `schema_migrations` with the schema checksum.)
 

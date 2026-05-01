@@ -21,6 +21,12 @@ database volume. To run the optional integration checks:
 scripts/run_postgres_integration.sh
 ```
 
+For the combined PostgreSQL and MinIO smoke used by CI:
+
+```bash
+scripts/run_storage_smoke.sh
+```
+
 Without Docker Compose:
 
 ```bash
