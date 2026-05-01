@@ -24,6 +24,7 @@ class WebApiTest(unittest.TestCase):
         self.assertIn("brief-output-json-path", body)
         self.assertIn("source-state-detail", body)
         self.assertIn("source-profile-strip", body)
+        self.assertIn("daily-cycle-button", body)
 
     def test_deterministic_analysis(self):
         data = api.analyze_deterministic(
@@ -399,6 +400,32 @@ class WebApiTest(unittest.TestCase):
             self.assertFalse(data["ok"])
             self.assertEqual(data["record"]["status"], "failed")
             self.assertIn("boom", data["record"]["error"])
+
+    def test_trigger_daily_cycle_records_result(self):
+        with tempfile.TemporaryDirectory(dir=Path.cwd()) as temp_dir, patch(
+            "biopharma_agent.web.api.run_daily_intelligence_cycle",
+            return_value={"ok": True, "record": {"status": "success"}, "run_log": str(Path(temp_dir) / "daily.jsonl")},
+        ) as cycle:
+            data = api.trigger_daily_cycle(
+                {
+                    "profile": "global_safety_alerts",
+                    "limit": 1,
+                    "analyze": False,
+                    "run_log": str(Path(temp_dir) / "daily.jsonl"),
+                    "output": str(Path(temp_dir) / "insights.jsonl"),
+                    "archive_dir": str(Path(temp_dir) / "raw"),
+                    "graph_dir": str(Path(temp_dir) / "graph"),
+                    "state_path": str(Path(temp_dir) / "source_state.json"),
+                    "report_md": str(Path(temp_dir) / "brief.md"),
+                    "report_json": str(Path(temp_dir) / "brief.json"),
+                }
+            )
+
+        self.assertTrue(data["ok"])
+        options = cycle.call_args.args[0]
+        self.assertEqual(options.profile, "global_safety_alerts")
+        self.assertFalse(options.analyze)
+        self.assertEqual(options.run_log, (Path(temp_dir) / "daily.jsonl").resolve())
 
 
 def _pipeline_record(title, source, event_type, risk, summary):

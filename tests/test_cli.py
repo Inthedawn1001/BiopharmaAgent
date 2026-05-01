@@ -158,6 +158,45 @@ class CliTest(unittest.TestCase):
         source_names = [source.name for source in helper.call_args.kwargs["sources"]]
         self.assertEqual(source_names, ["fda_press_releases"])
 
+    def test_daily_cycle_prints_summary(self):
+        with tempfile.TemporaryDirectory(dir=Path.cwd()) as temp_dir, patch(
+            "biopharma_agent.cli.run_daily_intelligence_cycle",
+            return_value={
+                "ok": True,
+                "run_log": str(Path(temp_dir) / "daily.jsonl"),
+                "record": {
+                    "status": "success",
+                    "run_id": "daily-test",
+                    "result": {
+                        "brief": {
+                            "document_count": 1,
+                            "summary": "One useful signal.",
+                            "artifacts": {"markdown": str(Path(temp_dir) / "brief.md")},
+                        }
+                    },
+                },
+            },
+        ) as cycle:
+            buffer = io.StringIO()
+            with redirect_stdout(buffer):
+                status = main(
+                    [
+                        "daily-cycle",
+                        "--profile",
+                        "global_safety_alerts",
+                        "--no-analyze",
+                        "--output",
+                        str(Path(temp_dir) / "insights.jsonl"),
+                        "--run-log",
+                        str(Path(temp_dir) / "daily.jsonl"),
+                    ]
+                )
+
+        self.assertEqual(status, 0)
+        self.assertIn("Daily intelligence cycle success", buffer.getvalue())
+        self.assertEqual(cycle.call_args.args[0].profile, "global_safety_alerts")
+        self.assertFalse(cycle.call_args.args[0].analyze)
+
 
 def _pipeline_record():
     return {

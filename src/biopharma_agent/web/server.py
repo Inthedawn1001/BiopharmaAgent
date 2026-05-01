@@ -163,6 +163,14 @@ class WorkbenchRequestHandler(BaseHTTPRequestHandler):
                 )
                 return
 
+            if parsed.path == "/api/jobs/daily-cycle":
+                result = api.trigger_daily_cycle(payload)
+                self._write_json(
+                    result,
+                    HTTPStatus.OK if result.get("ok") else HTTPStatus.BAD_REQUEST,
+                )
+                return
+
             self._write_json({"error": "not_found"}, HTTPStatus.NOT_FOUND)
         except ValueError as exc:
             self._write_json({"error": "bad_request", "message": str(exc)}, HTTPStatus.BAD_REQUEST)

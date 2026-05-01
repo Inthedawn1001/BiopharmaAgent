@@ -127,6 +127,19 @@ PYTHONPATH=src python3 -m biopharma_agent.cli fetch-sources \
 
 Source profiles provide reusable bundles for common workflows. Current profiles include `core_intelligence`, `global_safety_alerts`, `market_filings`, and `industry_news`. Use `--profile` with `fetch-sources` or `scheduled-fetch`; explicit `--sources` override the profile when both are provided.
 
+Run the full daily intelligence cycle in one command:
+
+```bash
+PYTHONPATH=src python3 -m biopharma_agent.cli daily-cycle \
+  --profile core_intelligence \
+  --limit 1 \
+  --incremental \
+  --report-md data/reports/latest_brief.md \
+  --report-json data/reports/latest_brief.json
+```
+
+The daily cycle fetches the selected profile, analyzes documents by default, updates source state, writes a cycle run log to `data/runs/daily_cycles.jsonl`, generates the intelligence brief, and saves Markdown/JSON report artifacts. Use `--no-analyze` for a collection-and-report smoke run that does not call an LLM.
+
 Each collection command updates source state by default with the latest source status, selected document IDs, skipped duplicate count, consecutive failure count, failure diagnosis, and remediation hint. JSONL mode writes `data/runs/source_state.json`; PostgreSQL mode writes the same state to the `source_states` table. Use `--incremental` to skip documents whose IDs are already recorded for that source. Use `--state-path` for a different JSONL state file, `--no-update-state` for stateless test runs, and `source-state` to inspect health:
 
 ```bash
@@ -234,7 +247,7 @@ Start the local web workbench:
 PYTHONPATH=src python3 -m biopharma_agent.cli serve --host 127.0.0.1 --port 8765
 ```
 
-Then visit `http://127.0.0.1:8765`. The workbench includes document analysis, document inbox, market intelligence briefs, run monitoring, manual fetch triggers, LLM extraction, task routing, human feedback, feedback browsing, time-series analysis, model settings, and runtime diagnostics. The inbox supports filtering by source, event type, risk, and keyword, plus pagination and sorting. The market panel can summarize stored analysis results into a Markdown intelligence brief. The run monitor can trigger selected sources, enable incremental collection, show source health, failure diagnosis, prioritized source alerts, and generate a Markdown source health report from the source state and run log. It uses the configured LLM for real analysis by default. If the API key is missing, the job fails and writes a run log for troubleshooting. Runtime diagnostics check LLM, storage, raw archive, sources, Docker, and GitHub sync state. The diagnostics API reports whether credentials are present but never returns secret values.
+Then visit `http://127.0.0.1:8765`. The workbench includes document analysis, document inbox, market intelligence briefs, run monitoring, manual fetch triggers, one-click daily intelligence cycles, LLM extraction, task routing, human feedback, feedback browsing, time-series analysis, model settings, and runtime diagnostics. The inbox supports filtering by source, event type, risk, and keyword, plus pagination and sorting. The market panel can summarize stored analysis results into a Markdown intelligence brief. The run monitor can trigger selected sources, run the daily cycle, enable incremental collection, show source health, failure diagnosis, prioritized source alerts, and generate a Markdown source health report from the source state and run log. It uses the configured LLM for real analysis by default. If the API key is missing, the job fails and writes a run log for troubleshooting. Runtime diagnostics check LLM, storage, raw archive, sources, Docker, and GitHub sync state. The diagnostics API reports whether credentials are present but never returns secret values.
 
 ## Architecture Entry Points
 

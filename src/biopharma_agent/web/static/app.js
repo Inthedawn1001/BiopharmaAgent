@@ -805,6 +805,38 @@ function matchingSourceProfile(selectedSources) {
   return profile ? profile.name : "";
 }
 
+function selectedJobSources() {
+  return Array.from($("#job-sources").selectedOptions).map((option) => option.value);
+}
+
+function jobPayload(overrides = {}) {
+  const selectedSources = selectedJobSources();
+  const matchingProfile = matchingSourceProfile(selectedSources);
+  return {
+    sources: selectedSources,
+    profile: matchingProfile,
+    limit: Number($("#job-limit").value || 1),
+    analyze: $("#job-analyze").checked,
+    fetch_details: $("#job-fetch-details").checked,
+    clean_html_details: $("#job-clean-html").checked,
+    incremental: $("#job-incremental").checked,
+    state_path: $("#job-state-path").value,
+    run_log: $("#runs-path").value,
+    output: $("#job-output").value,
+    archive_dir: "data/raw",
+    graph_dir: "data/graph",
+    ...overrides,
+  };
+}
+
+async function refreshOperationalViews() {
+  state.runsOffset = 0;
+  renderRunsTable(await loadRuns());
+  await loadSourceState();
+  state.documentsOffset = 0;
+  renderDocumentTable(await loadDocuments());
+}
+
 async function loadDiagnostics() {
   const output = $("#diagnostics-json");
   const grid = $("#diagnostics-grid");
@@ -1094,7 +1126,7 @@ function wireActions() {
     renderRunsTable(await loadRuns());
   });
   $("#job-sources").addEventListener("change", () => {
-    const selectedSources = Array.from($("#job-sources").selectedOptions).map((option) => option.value);
+    const selectedSources = selectedJobSources();
     state.selectedProfile = matchingSourceProfile(selectedSources);
     renderSourceProfiles();
   });
@@ -1102,36 +1134,46 @@ function wireActions() {
     const button = event.currentTarget;
     setLoading(button, true);
     try {
-      const selectedSources = Array.from($("#job-sources").selectedOptions).map((option) => option.value);
-      const matchingProfile = matchingSourceProfile(selectedSources);
-      const payload = {
-        sources: selectedSources,
-        profile: matchingProfile,
-        limit: Number($("#job-limit").value || 1),
-        analyze: $("#job-analyze").checked,
-        fetch_details: $("#job-fetch-details").checked,
-        clean_html_details: $("#job-clean-html").checked,
-        incremental: $("#job-incremental").checked,
-        state_path: $("#job-state-path").value,
-        run_log: $("#runs-path").value,
-        output: $("#job-output").value,
-        archive_dir: "data/raw",
-        graph_dir: "data/graph",
-      };
-      const result = await requestJson("/api/jobs/fetch", payload);
+      const result = await requestJson("/api/jobs/fetch", jobPayload());
       $("#job-output-json").textContent = JSON.stringify(result, null, 2);
     } catch (error) {
       $("#job-output-json").textContent = JSON.stringify({ error: error.message }, null, 2);
     } finally {
       setLoading(button, false);
       try {
-        state.runsOffset = 0;
-        renderRunsTable(await loadRuns());
-        await loadSourceState();
-        state.documentsOffset = 0;
-        renderDocumentTable(await loadDocuments());
+        await refreshOperationalViews();
       } catch {
         // Keep the job result visible even if a refresh fails.
+      }
+    }
+  });
+  $("#daily-cycle-button").addEventListener("click", async (event) => {
+    const button = event.currentTarget;
+    setLoading(button, true);
+    try {
+      const result = await requestJson(
+        "/api/jobs/daily-cycle",
+        jobPayload({
+          run_log: "data/runs/daily_cycles.jsonl",
+          brief_limit: Number($("#brief-limit").value || 100),
+          report_md: $("#brief-output-md").value,
+          report_json: $("#brief-output-json-path").value,
+        }),
+      );
+      $("#job-output-json").textContent = JSON.stringify(result, null, 2);
+      const brief = result.record?.result?.brief;
+      if (brief) {
+        renderBrief(brief);
+      }
+      $("#runs-path").value = result.run_log || "data/runs/daily_cycles.jsonl";
+    } catch (error) {
+      $("#job-output-json").textContent = JSON.stringify({ error: error.message }, null, 2);
+    } finally {
+      setLoading(button, false);
+      try {
+        await refreshOperationalViews();
+      } catch {
+        // Keep the cycle result visible even if a refresh fails.
       }
     }
   });

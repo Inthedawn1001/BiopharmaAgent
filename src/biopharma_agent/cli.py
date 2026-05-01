@@ -20,6 +20,7 @@ from biopharma_agent.demo import seed_demo_data
 from biopharma_agent.orchestration.scheduler import LocalRunLog, RecurringRunner
 from biopharma_agent.orchestration.source_state import source_state_summary
 from biopharma_agent.orchestration.workflow import LocalDocumentWorkflow
+from biopharma_agent.orchestration.daily_cycle import DailyCycleOptions, run_daily_intelligence_cycle
 from biopharma_agent.sources import get_default_source, get_source_profile, list_default_sources, list_source_profiles
 from biopharma_agent.storage.local import LocalAnalysisRepository
 from biopharma_agent.llm.factory import create_llm_provider
@@ -245,6 +246,30 @@ def main(argv: list[str] | None = None) -> int:
         help="Stop recurring execution after the first failed run.",
     )
 
+    daily_cycle = subparsers.add_parser(
+        "daily-cycle",
+        help="Run the full fetch, analysis, source-state, and intelligence brief cycle once.",
+    )
+    daily_cycle.add_argument("--profile", default="core_intelligence")
+    daily_cycle.add_argument("--sources", nargs="*", help="Explicit source names; overrides --profile.")
+    daily_cycle.add_argument("--limit", type=int, default=1, help="Items per source.")
+    daily_cycle.add_argument("--analyze", action=argparse.BooleanOptionalAction, default=True)
+    daily_cycle.add_argument("--fetch-details", action=argparse.BooleanOptionalAction, default=True)
+    daily_cycle.add_argument("--clean-html-details", action=argparse.BooleanOptionalAction, default=True)
+    daily_cycle.add_argument("--archive-dir", type=Path, default=Path("data/raw"))
+    daily_cycle.add_argument("--output", type=Path, default=Path("data/processed/insights.jsonl"))
+    daily_cycle.add_argument("--graph-dir", type=Path, default=Path("data/graph"))
+    daily_cycle.add_argument("--no-graph", action="store_true", help="Do not write graph JSONL.")
+    daily_cycle.add_argument("--detail-delay-seconds", type=float, default=0.0)
+    daily_cycle.add_argument("--state-path", type=Path, default=Path("data/runs/source_state.json"))
+    daily_cycle.add_argument("--incremental", action=argparse.BooleanOptionalAction, default=True)
+    daily_cycle.add_argument("--no-update-state", action="store_true")
+    daily_cycle.add_argument("--run-log", type=Path, default=Path("data/runs/daily_cycles.jsonl"))
+    daily_cycle.add_argument("--brief-limit", type=int, default=100)
+    daily_cycle.add_argument("--report-md", type=Path, default=Path("data/reports/latest_brief.md"))
+    daily_cycle.add_argument("--report-json", type=Path, default=Path("data/reports/latest_brief.json"))
+    daily_cycle.add_argument("--json", action="store_true", help="Print the full cycle JSON result.")
+
     serve = subparsers.add_parser("serve", help="Start the local web workbench.")
     serve.add_argument("--host", default="127.0.0.1")
     serve.add_argument("--port", type=int, default=8765)
@@ -442,6 +467,7 @@ def main(argv: list[str] | None = None) -> int:
             "fetch-html-source",
             "fetch-html-sources",
             "scheduled-fetch",
+            "daily-cycle",
         }
         and args.analyze
     )
@@ -669,6 +695,46 @@ def main(argv: list[str] | None = None) -> int:
             },
         )
         print(json.dumps([asdict(record) for record in records], ensure_ascii=False, indent=2, default=str))
+        return 0
+
+    if args.command == "daily-cycle":
+        result = run_daily_intelligence_cycle(
+            DailyCycleOptions(
+                profile=args.profile,
+                source_names=args.sources,
+                limit=args.limit,
+                analyze=args.analyze,
+                fetch_details=args.fetch_details,
+                clean_html_details=args.clean_html_details,
+                archive_dir=args.archive_dir,
+                output=args.output,
+                graph_dir=args.graph_dir,
+                no_graph=args.no_graph,
+                detail_delay_seconds=args.detail_delay_seconds,
+                state_path=args.state_path,
+                incremental=args.incremental,
+                update_state=not args.no_update_state,
+                run_log=args.run_log,
+                brief_limit=args.brief_limit,
+                report_md=args.report_md,
+                report_json=args.report_json,
+            ),
+            provider=provider,
+        )
+        if args.json:
+            print(json.dumps(result, ensure_ascii=False, indent=2, default=str))
+        else:
+            record = result["record"]
+            brief = record.get("result", {}).get("brief", {}) if isinstance(record.get("result"), dict) else {}
+            print(f"Daily intelligence cycle {record['status']}: {record['run_id']}")
+            if record.get("error"):
+                print(f"Error: {record['error']}")
+            if brief:
+                print(f"Documents: {brief.get('document_count', 0)}")
+                print(f"Summary: {brief.get('summary', '')}")
+                artifacts = brief.get("artifacts") if isinstance(brief.get("artifacts"), dict) else {}
+                for label, path in artifacts.items():
+                    print(f"{label}: {path}")
         return 0
 
     parser.error(f"Unknown command: {args.command}")

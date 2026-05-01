@@ -24,6 +24,7 @@ from biopharma_agent.ops.feedback import FeedbackRecord, LocalFeedbackRepository
 from biopharma_agent.ops.source_report import build_source_health_report
 from biopharma_agent.orchestration.source_state import source_state_summary
 from biopharma_agent.orchestration.scheduler import JobRunRecord, LocalRunLog
+from biopharma_agent.orchestration.daily_cycle import DailyCycleOptions, run_daily_intelligence_cycle
 from biopharma_agent.sources import get_default_source, get_source_profile, list_default_sources, list_source_profiles
 from biopharma_agent.storage.factory import create_analysis_repository, create_source_state_store
 from biopharma_agent.storage.local import LocalAnalysisRepository
@@ -244,6 +245,38 @@ def source_health_report(
     source_state = list_source_state(state_path)
     runs = list_runs(run_log_path, limit=5, offset=0)
     return build_source_health_report(source_state, runs)
+
+
+def trigger_daily_cycle(payload: dict[str, Any]) -> dict[str, Any]:
+    sources = payload.get("sources")
+    source_names = [str(item) for item in sources if str(item).strip()] if isinstance(sources, list) else None
+    storage_settings = AgentSettings.from_env().storage
+    state_path = (
+        _safe_workspace_path(str(payload.get("state_path") or "data/runs/source_state.json"))
+        if storage_settings.backend == "jsonl"
+        else Path("postgres")
+    )
+    options = DailyCycleOptions(
+        profile=str(payload.get("profile") or "core_intelligence"),
+        source_names=source_names,
+        limit=max(1, min(int(payload.get("limit", 1)), 25)),
+        analyze=_bool_value(payload.get("analyze", True)),
+        fetch_details=_bool_value(payload.get("fetch_details", True)),
+        clean_html_details=_bool_value(payload.get("clean_html_details", True)),
+        archive_dir=_safe_workspace_path(str(payload.get("archive_dir") or "data/raw")),
+        output=_safe_workspace_path(str(payload.get("output") or "data/processed/insights.jsonl")),
+        graph_dir=_safe_workspace_path(str(payload.get("graph_dir") or "data/graph")),
+        no_graph=_bool_value(payload.get("no_graph", False)),
+        detail_delay_seconds=float(payload.get("detail_delay_seconds", 0.0)),
+        state_path=state_path,
+        incremental=_bool_value(payload.get("incremental", True)),
+        update_state=_bool_value(payload.get("update_state", True)),
+        run_log=_safe_workspace_path(str(payload.get("run_log") or "data/runs/daily_cycles.jsonl")),
+        brief_limit=max(1, min(int(payload.get("brief_limit", 100)), 500)),
+        report_md=_safe_workspace_path(str(payload.get("report_md") or "data/reports/latest_brief.md")),
+        report_json=_safe_workspace_path(str(payload.get("report_json") or "data/reports/latest_brief.json")),
+    )
+    return run_daily_intelligence_cycle(options)
 
 
 def trigger_fetch_job(payload: dict[str, Any]) -> dict[str, Any]:
