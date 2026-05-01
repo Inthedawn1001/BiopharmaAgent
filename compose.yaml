@@ -57,6 +57,10 @@ services:
       BIOPHARMA_AIRFLOW_LIMIT: "1"
       BIOPHARMA_AIRFLOW_ANALYZE: "0"
       BIOPHARMA_AIRFLOW_RUN_LOG: /opt/airflow/project/data/runs/airflow_fetch_runs.jsonl
+      BIOPHARMA_AIRFLOW_SOURCE_STATE: /opt/airflow/project/data/runs/airflow_source_state.json
+      BIOPHARMA_AIRFLOW_INCREMENTAL: "0"
+      BIOPHARMA_AIRFLOW_FETCH_DETAILS: "0"
+      BIOPHARMA_AIRFLOW_CLEAN_HTML_DETAILS: "0"
     volumes:
       - ./:/opt/airflow/project
       - ./infra/airflow/dags:/opt/airflow/dags

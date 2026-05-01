@@ -237,5 +237,5 @@ Latest local verification on May 1, 2026:
 - Unit tests: `PYTHONPATH=src python -m unittest discover -s tests` -> 85 passed, 1 skipped
 - Storage smoke: `scripts/run_storage_smoke.sh` -> PostgreSQL and MinIO checks passed without external news-source dependency
 - Full-stack smoke: `scripts/run_full_stack_smoke.sh` -> PostgreSQL migration checked, MinIO raw object verified, FDA real collection selected 1 document and analyzed 1 document
-- Airflow smoke: `scripts/run_airflow_smoke.sh` -> DAG loaded and latest run log entry succeeded with 1 selected document
+- Airflow smoke: `scripts/run_airflow_smoke.sh` -> DAG loaded, latest run log entry succeeded with 1 selected document, and source state was written
 - Content hygiene: tracked files contain no Chinese text, real host name, real local user name, or committed API key

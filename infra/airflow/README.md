@@ -28,11 +28,18 @@ BIOPHARMA_AIRFLOW_LIMIT=2
 BIOPHARMA_AIRFLOW_ANALYZE=0
 BIOPHARMA_AIRFLOW_SCHEDULE="0 * * * *"
 BIOPHARMA_AIRFLOW_RUN_LOG=data/runs/airflow_fetch_runs.jsonl
+BIOPHARMA_AIRFLOW_SOURCE_STATE=data/runs/airflow_source_state.json
+BIOPHARMA_AIRFLOW_INCREMENTAL=1
+BIOPHARMA_AIRFLOW_FETCH_DETAILS=1
+BIOPHARMA_AIRFLOW_CLEAN_HTML_DETAILS=1
 BIOPHARMA_AIRFLOW_PYTHON=python3
 ```
 
 The DAG intentionally shells out to the CLI. That keeps Airflow thin and avoids
 duplicating source selection, storage, graph, and LLM configuration logic.
+The Python task returns a compact summary containing run status, selected and
+analyzed counts, skipped seen-document counts, and source-state row counts so
+Airflow task logs and XComs have operational context.
 
 ## Docker Smoke
 
@@ -46,6 +53,7 @@ scripts/run_airflow_smoke.sh
 By default this smoke uses `fda_press_releases`, `limit=1`, and `analyze=0` so it
 does not require an LLM key. Set `BIOPHARMA_AIRFLOW_ANALYZE=1` and normal
 `BIOPHARMA_LLM_*` variables if you want the Airflow run to perform real LLM
-analysis. The smoke script validates that the latest run log entry succeeded and
-selected at least one source document. Set `PYTHON=/path/to/python` when the
-host-side post-check should use a specific virtualenv.
+analysis. The smoke script validates that the latest run log entry succeeded,
+selected at least one source document, and wrote source health into the Airflow
+source-state file. Set `PYTHON=/path/to/python` when the host-side post-check
+should use a specific virtualenv.
