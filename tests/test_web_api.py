@@ -18,6 +18,7 @@ class WebApiTest(unittest.TestCase):
         self.assertIn("Biopharma Agent Workbench", body)
         self.assertIn("source-state-status-filter", body)
         self.assertIn("source-state-alerts", body)
+        self.assertIn("load-source-report-button", body)
         self.assertIn("source-state-detail", body)
 
     def test_deterministic_analysis(self):
@@ -238,6 +239,32 @@ class WebApiTest(unittest.TestCase):
             self.assertEqual(data["backend"], "postgres")
             self.assertEqual(data["summary"]["success"], 1)
             factory.assert_called_once()
+
+    def test_source_health_report_returns_markdown(self):
+        with tempfile.TemporaryDirectory(dir=Path.cwd()) as temp_dir:
+            run_log = Path(temp_dir) / "runs.jsonl"
+            run_log.write_text(
+                json.dumps(
+                    {
+                        "job_name": "fetch-sources",
+                        "run_id": "run-1",
+                        "status": "success",
+                        "started_at": "2026-05-01T00:00:00+00:00",
+                        "completed_at": "2026-05-01T00:00:01+00:00",
+                        "duration_seconds": 1,
+                        "result": [{"source": "fda_press_releases", "selected": 1, "analyzed": 1}],
+                        "metadata": {"sources": ["fda_press_releases"]},
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            data = api.source_health_report(Path(temp_dir) / "source_state.json", run_log)
+
+            self.assertIn("markdown", data)
+            self.assertIn("Biopharma Agent Source Health Report", data["markdown"])
+            self.assertEqual(data["summary"]["latest_run_status"], "success")
 
     def test_diagnostics_endpoint_shape(self):
         data = api.diagnostics()

@@ -712,6 +712,14 @@ async function loadSourceState() {
   return data;
 }
 
+async function loadSourceReport() {
+  const params = new URLSearchParams({
+    state_path: $("#job-state-path").value,
+    run_log: $("#runs-path").value,
+  });
+  return getJson(`/api/source-report?${params.toString()}`);
+}
+
 function renderDiagnostics(data) {
   $("#diagnostics-json").textContent = JSON.stringify(data, null, 2);
   const status = data.status || "unknown";
@@ -992,6 +1000,18 @@ function wireActions() {
       await loadSourceState();
     } catch (error) {
       $("#source-state-count").textContent = error.message;
+    } finally {
+      setLoading(button, false);
+    }
+  });
+  $("#load-source-report-button").addEventListener("click", async (event) => {
+    const button = event.currentTarget;
+    setLoading(button, true);
+    try {
+      const report = await loadSourceReport();
+      $("#source-report-output").textContent = report.markdown || JSON.stringify(report, null, 2);
+    } catch (error) {
+      $("#source-report-output").textContent = `Report failed: ${error.message}`;
     } finally {
       setLoading(button, false);
     }

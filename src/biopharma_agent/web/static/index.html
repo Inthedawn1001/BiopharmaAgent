@@ -200,7 +200,10 @@
                 <div class="section-title">Source Health</div>
                 <div id="source-state-count" class="table-count">0 sources</div>
               </div>
-              <button id="load-source-state-button" class="secondary">Refresh Source Health</button>
+              <div class="button-row compact-actions">
+                <button id="load-source-report-button" class="ghost">Generate Report</button>
+                <button id="load-source-state-button" class="secondary">Refresh Source Health</button>
+              </div>
             </div>
             <div class="source-health-summary">
               <article class="metric compact">
@@ -221,6 +224,7 @@
               </article>
             </div>
             <div id="source-state-alerts" class="source-alerts"></div>
+            <pre id="source-report-output" class="json-view compact report-view">Generate a source report to view Markdown.</pre>
             <div class="source-health-filters">
               <label>
                 Status

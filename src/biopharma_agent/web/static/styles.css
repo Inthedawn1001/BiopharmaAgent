@@ -166,6 +166,10 @@ button.ghost {
   flex-wrap: wrap;
 }
 
+.compact-actions {
+  justify-content: flex-end;
+}
+
 .panel {
   display: none;
 }
@@ -262,6 +266,15 @@ button.ghost {
 
 .source-alert-ok {
   grid-template-columns: 1fr;
+}
+
+.report-view {
+  display: none;
+  white-space: pre-wrap;
+}
+
+.report-view:not(:empty) {
+  display: block;
 }
 
 .source-health-filters {

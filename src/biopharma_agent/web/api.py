@@ -20,6 +20,7 @@ from biopharma_agent.llm.factory import create_llm_provider
 from biopharma_agent.ops.diagnostics import diagnose_environment
 from biopharma_agent.ops.factory import create_feedback_repository
 from biopharma_agent.ops.feedback import FeedbackRecord, LocalFeedbackRepository
+from biopharma_agent.ops.source_report import build_source_health_report
 from biopharma_agent.orchestration.source_state import source_state_summary
 from biopharma_agent.orchestration.scheduler import JobRunRecord, LocalRunLog
 from biopharma_agent.sources import get_default_source, list_default_sources
@@ -201,6 +202,15 @@ def get_document_detail(
 def list_runs(path: str | Path, limit: int = 25, offset: int = 0) -> dict[str, Any]:
     run_log = LocalRunLog(_safe_workspace_path(path))
     return run_log.list_records_page(limit=limit, offset=offset)
+
+
+def source_health_report(
+    state_path: str | Path = "data/runs/source_state.json",
+    run_log_path: str | Path = "data/runs/fetch_runs.jsonl",
+) -> dict[str, Any]:
+    source_state = list_source_state(state_path)
+    runs = list_runs(run_log_path, limit=5, offset=0)
+    return build_source_health_report(source_state, runs)
 
 
 def trigger_fetch_job(payload: dict[str, Any]) -> dict[str, Any]:

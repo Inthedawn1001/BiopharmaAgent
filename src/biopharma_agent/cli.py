@@ -30,6 +30,7 @@ from biopharma_agent.ops.diagnostics import diagnose_environment
 from biopharma_agent.ops.llm_observer import ObservedLLMProvider
 from biopharma_agent.ops.logging import configure_logging
 from biopharma_agent.ops.metrics import InMemoryMetrics
+from biopharma_agent.ops.source_report import build_source_health_report
 from biopharma_agent.storage.factory import (
     create_analysis_repository,
     create_raw_archive,
@@ -114,6 +115,11 @@ def main(argv: list[str] | None = None) -> int:
 
     source_state = subparsers.add_parser("source-state", help="List source health and incremental state.")
     source_state.add_argument("--state-path", type=Path, default=Path("data/runs/source_state.json"))
+
+    source_report = subparsers.add_parser("source-report", help="Print a Markdown source health report.")
+    source_report.add_argument("--state-path", type=Path, default=Path("data/runs/source_state.json"))
+    source_report.add_argument("--run-log", type=Path, default=Path("data/runs/fetch_runs.jsonl"))
+    source_report.add_argument("--json", action="store_true", help="Print JSON with Markdown and summary.")
 
     fetch_source = subparsers.add_parser("fetch-source", help="Fetch one built-in RSS/Atom source.")
     fetch_source.add_argument("source")
@@ -348,18 +354,31 @@ def main(argv: list[str] | None = None) -> int:
         storage_settings = AgentSettings.from_env().storage
         store = create_source_state_store(storage_settings, path=args.state_path)
         state_path = str(args.state_path) if storage_settings.backend == "jsonl" else "postgres"
-        print(
-            json.dumps(
-                source_state_summary(
-                    store,
-                    sources=list_default_sources(),
-                    path=state_path,
-                    backend=storage_settings.backend,
-                ),
-                ensure_ascii=False,
-                indent=2,
-            )
+        state = source_state_summary(
+            store,
+            sources=list_default_sources(),
+            path=state_path,
+            backend=storage_settings.backend,
         )
+        print(json.dumps(state, ensure_ascii=False, indent=2))
+        return 0
+
+    if args.command == "source-report":
+        storage_settings = AgentSettings.from_env().storage
+        store = create_source_state_store(storage_settings, path=args.state_path)
+        state_path = str(args.state_path) if storage_settings.backend == "jsonl" else "postgres"
+        state = source_state_summary(
+            store,
+            sources=list_default_sources(),
+            path=state_path,
+            backend=storage_settings.backend,
+        )
+        runs = LocalRunLog(args.run_log).list_records_page(limit=5, offset=0)
+        report = build_source_health_report(state, runs)
+        if args.json:
+            print(json.dumps(report, ensure_ascii=False, indent=2))
+        else:
+            print(report["markdown"])
         return 0
 
     if args.command == "serve":

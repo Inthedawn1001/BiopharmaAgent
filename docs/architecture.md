@@ -115,9 +115,11 @@ with an interval.
 Collection also maintains source state unless disabled by the caller. JSONL mode
 uses `data/runs/source_state.json`; PostgreSQL mode stores the same contract in
 the `source_states` table. The state records latest source health, consecutive
-failures, selected document IDs, and seen document IDs. CLI and web jobs can
-enable incremental mode so already-seen document IDs are skipped before
-analysis, while failures still update source health for diagnosis.
+failures, selected document IDs, seen document IDs, failure diagnosis, and
+remediation hints. CLI and web jobs can enable incremental mode so already-seen
+document IDs are skipped before analysis, while failures still update source
+health for diagnosis. The same state can generate prioritized source alerts and
+a Markdown source health report for operations review.
 
 The Airflow DAG in `infra/airflow/dags` intentionally shells out to
 `scheduled-fetch --max-runs 1`. Airflow handles external orchestration while the
