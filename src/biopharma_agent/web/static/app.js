@@ -11,6 +11,8 @@ const state = {
   runsLimit: 20,
   runsHasMore: false,
   sources: [],
+  sourceProfiles: [],
+  selectedProfile: "core_intelligence",
   sourceState: [],
   sourceStateData: null,
 };
@@ -678,6 +680,7 @@ async function loadHealthAndConfig() {
   }
 
   await loadSources();
+  await loadSourceProfiles();
   await loadSourceState();
   await loadDiagnostics();
 }
@@ -701,15 +704,94 @@ function renderSourceOptions(sources) {
     return;
   }
   select.innerHTML = "";
-  const defaults = new Set(["fda_press_releases", "sec_biopharma_filings", "asx_biopharma_announcements"]);
+  const selectedProfile = state.sourceProfiles.find((profile) => profile.name === state.selectedProfile);
+  const defaults = new Set(
+    selectedProfile?.source_names || [
+      "fda_press_releases",
+      "sec_biopharma_filings",
+      "asx_biopharma_announcements",
+    ],
+  );
   for (const source of sources) {
     const option = document.createElement("option");
     option.value = source.name;
-    option.textContent = `${source.name} · ${source.collector || "feed"}`;
+    option.textContent = `${source.name} · ${source.collector || "feed"} · ${source.category || "uncategorized"}`;
     option.disabled = !source.enabled;
     option.selected = defaults.has(source.name) && source.enabled;
     select.appendChild(option);
   }
+}
+
+async function loadSourceProfiles() {
+  try {
+    const data = await getJson("/api/source-profiles");
+    state.sourceProfiles = data.items || [];
+    if (!state.sourceProfiles.some((profile) => profile.name === state.selectedProfile)) {
+      state.selectedProfile = state.sourceProfiles[0]?.name || "";
+    }
+    renderSourceProfiles();
+    renderSourceOptions(state.sources);
+  } catch (error) {
+    state.sourceProfiles = [];
+    const output = $("#job-output-json");
+    if (output) {
+      output.textContent = JSON.stringify({ error: error.message }, null, 2);
+    }
+  }
+}
+
+function renderSourceProfiles() {
+  const container = $("#source-profile-strip");
+  if (!container) {
+    return;
+  }
+  container.innerHTML = "";
+  for (const profile of state.sourceProfiles) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `profile-button${profile.name === state.selectedProfile ? " active" : ""}`;
+    button.dataset.profile = profile.name;
+
+    const label = document.createElement("strong");
+    label.textContent = profile.label || profile.name;
+    const meta = document.createElement("span");
+    meta.textContent = `${profile.source_names.length} sources · ${profile.category || "mixed"}`;
+    button.append(label, meta);
+
+    button.addEventListener("click", () => {
+      applySourceProfile(profile.name);
+    });
+    container.appendChild(button);
+  }
+}
+
+function applySourceProfile(profileName) {
+  const profile = state.sourceProfiles.find((item) => item.name === profileName);
+  if (!profile) {
+    return;
+  }
+  state.selectedProfile = profile.name;
+  $("#job-limit").value = String(profile.default_limit || 1);
+  $("#job-analyze").checked = Boolean(profile.analyze);
+  $("#job-fetch-details").checked = Boolean(profile.fetch_details);
+  $("#job-clean-html").checked = Boolean(profile.clean_html_details);
+  renderSourceProfiles();
+  renderSourceOptions(state.sources);
+  $("#job-output-json").textContent = JSON.stringify(
+    {
+      profile: profile.name,
+      sources: profile.source_names,
+      notes: profile.notes,
+    },
+    null,
+    2,
+  );
+}
+
+function matchingSourceProfile(selectedSources) {
+  const selected = selectedSources.slice().sort().join("|");
+  const profile = state.sourceProfiles.find((item) => item.source_names.slice().sort().join("|") === selected);
+  return profile ? profile.name : "";
 }
 
 async function loadDiagnostics() {
@@ -998,13 +1080,20 @@ function wireActions() {
     state.runsOffset += state.runsLimit;
     renderRunsTable(await loadRuns());
   });
+  $("#job-sources").addEventListener("change", () => {
+    const selectedSources = Array.from($("#job-sources").selectedOptions).map((option) => option.value);
+    state.selectedProfile = matchingSourceProfile(selectedSources);
+    renderSourceProfiles();
+  });
   $("#trigger-fetch-button").addEventListener("click", async (event) => {
     const button = event.currentTarget;
     setLoading(button, true);
     try {
       const selectedSources = Array.from($("#job-sources").selectedOptions).map((option) => option.value);
+      const matchingProfile = matchingSourceProfile(selectedSources);
       const payload = {
         sources: selectedSources,
+        profile: matchingProfile,
         limit: Number($("#job-limit").value || 1),
         analyze: $("#job-analyze").checked,
         fetch_details: $("#job-fetch-details").checked,

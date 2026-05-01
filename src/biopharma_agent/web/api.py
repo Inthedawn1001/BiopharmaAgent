@@ -24,7 +24,7 @@ from biopharma_agent.ops.feedback import FeedbackRecord, LocalFeedbackRepository
 from biopharma_agent.ops.source_report import build_source_health_report
 from biopharma_agent.orchestration.source_state import source_state_summary
 from biopharma_agent.orchestration.scheduler import JobRunRecord, LocalRunLog
-from biopharma_agent.sources import get_default_source, list_default_sources
+from biopharma_agent.sources import get_default_source, get_source_profile, list_default_sources, list_source_profiles
 from biopharma_agent.storage.factory import create_analysis_repository, create_source_state_store
 from biopharma_agent.storage.local import LocalAnalysisRepository
 from biopharma_agent.storage.repository import DocumentFilters
@@ -68,6 +68,14 @@ def list_sources(kind: str = "", category: str = "") -> dict[str, Any]:
     return {
         "items": [source_summary(source) for source in sources],
         "count": len(sources),
+    }
+
+
+def list_profiles() -> dict[str, Any]:
+    profiles = list_source_profiles()
+    return {
+        "items": [profile.to_dict() for profile in profiles],
+        "count": len(profiles),
     }
 
 
@@ -229,11 +237,13 @@ def source_health_report(
 
 def trigger_fetch_job(payload: dict[str, Any]) -> dict[str, Any]:
     sources = payload.get("sources")
-    source_names = (
-        [str(item) for item in sources if str(item).strip()]
-        if isinstance(sources, list) and sources
-        else ["fda_press_releases"]
-    )
+    profile_name = str(payload.get("profile") or "").strip()
+    if isinstance(sources, list) and sources:
+        source_names = [str(item) for item in sources if str(item).strip()]
+    elif profile_name:
+        source_names = get_source_profile(profile_name).source_names
+    else:
+        source_names = ["fda_press_releases"]
     run_log_path = _safe_workspace_path(str(payload.get("run_log") or "data/runs/fetch_runs.jsonl"))
     storage_settings = AgentSettings.from_env().storage
     state_path = (
@@ -272,6 +282,7 @@ def trigger_fetch_job(payload: dict[str, Any]) -> dict[str, Any]:
             result=result,
             metadata={
                 "sources": source_names,
+                "profile": profile_name,
                 "limit": options.limit,
                 "analyze": options.analyze,
                 "fetch_details": options.fetch_details,
@@ -293,6 +304,7 @@ def trigger_fetch_job(payload: dict[str, Any]) -> dict[str, Any]:
             error=str(exc),
             metadata={
                 "sources": source_names,
+                "profile": profile_name,
                 "limit": options.limit,
                 "analyze": options.analyze,
                 "fetch_details": options.fetch_details,

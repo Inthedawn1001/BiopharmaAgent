@@ -42,6 +42,10 @@ class WorkbenchRequestHandler(BaseHTTPRequestHandler):
             )
             return
 
+        if parsed.path == "/api/source-profiles":
+            self._write_json(api.list_profiles())
+            return
+
         if parsed.path == "/api/documents":
             query = parse_qs(parsed.query)
             path = query.get("path", ["data/processed/insights.jsonl"])[0]

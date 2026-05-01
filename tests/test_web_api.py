@@ -21,6 +21,7 @@ class WebApiTest(unittest.TestCase):
         self.assertIn("load-source-report-button", body)
         self.assertIn("brief-button", body)
         self.assertIn("source-state-detail", body)
+        self.assertIn("source-profile-strip", body)
 
     def test_deterministic_analysis(self):
         data = api.analyze_deterministic(
@@ -224,6 +225,16 @@ class WebApiTest(unittest.TestCase):
         self.assertIn("sec_biopharma_filings", names)
         self.assertEqual(names["sec_biopharma_filings"]["collector"], "sec_submissions")
 
+    def test_list_profiles_returns_enabled_source_bundles(self):
+        data = api.list_profiles()
+
+        profiles = {item["name"]: item for item in data["items"]}
+        self.assertIn("core_intelligence", profiles)
+        self.assertIn("global_safety_alerts", profiles)
+        self.assertIn("mhra_drug_device_alerts", profiles["global_safety_alerts"]["source_names"])
+        self.assertIn("sec_biopharma_filings", profiles["market_filings"]["source_names"])
+        self.assertNotIn("asx_announcements", profiles["market_filings"]["source_names"])
+
     def test_list_source_state_includes_never_run_sources(self):
         with tempfile.TemporaryDirectory(dir=Path.cwd()) as temp_dir:
             data = api.list_source_state(Path(temp_dir) / "source_state.json")
@@ -309,7 +320,7 @@ class WebApiTest(unittest.TestCase):
             run_log = Path(temp_dir) / "runs.jsonl"
             data = api.trigger_fetch_job(
                 {
-                    "sources": ["fda_press_releases"],
+                    "profile": "global_safety_alerts",
                     "limit": 1,
                     "analyze": True,
                     "run_log": str(run_log),
@@ -324,6 +335,11 @@ class WebApiTest(unittest.TestCase):
             self.assertTrue(data["ok"])
             self.assertTrue(run_log.exists())
             self.assertEqual(data["record"]["status"], "success")
+            self.assertEqual(data["record"]["metadata"]["profile"], "global_safety_alerts")
+            self.assertEqual(
+                data["record"]["metadata"]["sources"],
+                ["fda_medwatch", "mhra_drug_device_alerts"],
+            )
             self.assertTrue(data["record"]["metadata"]["incremental"])
             self.assertEqual(
                 data["record"]["metadata"]["state_path"],

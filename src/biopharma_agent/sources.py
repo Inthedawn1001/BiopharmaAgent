@@ -2,7 +2,27 @@
 
 from __future__ import annotations
 
+from dataclasses import asdict, dataclass
+
 from biopharma_agent.contracts import SourceRef
+
+
+@dataclass(frozen=True)
+class SourceProfile:
+    """Named source bundle for common collection workflows."""
+
+    name: str
+    label: str
+    category: str
+    source_names: list[str]
+    default_limit: int = 1
+    analyze: bool = True
+    fetch_details: bool = True
+    clean_html_details: bool = True
+    notes: str = ""
+
+    def to_dict(self) -> dict[str, object]:
+        return asdict(self)
 
 
 def feed_source(
@@ -311,6 +331,60 @@ DEFAULT_API_SOURCES: list[SourceRef] = [
 DEFAULT_SOURCES: list[SourceRef] = [*DEFAULT_FEED_SOURCES, *DEFAULT_HTML_SOURCES, *DEFAULT_API_SOURCES]
 
 
+DEFAULT_SOURCE_PROFILES: list[SourceProfile] = [
+    SourceProfile(
+        name="core_intelligence",
+        label="Core Intelligence",
+        category="mixed",
+        source_names=[
+            "fda_press_releases",
+            "fda_medwatch",
+            "mhra_drug_device_alerts",
+            "ema_news",
+            "sec_biopharma_filings",
+            "asx_biopharma_announcements",
+            "biopharma_dive_news",
+        ],
+        notes="Balanced regulatory, safety, market filing, and industry news sources for daily monitoring.",
+    ),
+    SourceProfile(
+        name="global_safety_alerts",
+        label="Global Safety Alerts",
+        category="safety_alert",
+        source_names=[
+            "fda_medwatch",
+            "mhra_drug_device_alerts",
+        ],
+        notes="Official safety alert feeds for medicine and medical-device monitoring.",
+    ),
+    SourceProfile(
+        name="market_filings",
+        label="Market Filings",
+        category="market",
+        source_names=[
+            "sec_biopharma_filings",
+            "asx_biopharma_announcements",
+            "investegate_announcements",
+            "nasdaq_inc_news",
+        ],
+        notes="Capital-market announcements, exchange news, and regulatory filing sources.",
+    ),
+    SourceProfile(
+        name="industry_news",
+        label="Industry News",
+        category="industry_news",
+        source_names=[
+            "biopharma_dive_news",
+            "medtech_dive_news",
+            "labiotech_news",
+            "biospace_business",
+            "biospace_fda",
+        ],
+        notes="Industry publication feeds for pipeline, business, FDA, and medtech updates.",
+    ),
+]
+
+
 def list_default_sources(kind: str | None = None, category: str | None = None) -> list[SourceRef]:
     sources = DEFAULT_SOURCES
     if kind:
@@ -326,3 +400,36 @@ def get_default_source(name: str) -> SourceRef:
             return source
     names = ", ".join(source.name for source in DEFAULT_SOURCES)
     raise KeyError(f"Unknown source '{name}'. Available sources: {names}")
+
+
+def list_source_profiles() -> list[SourceProfile]:
+    available_enabled = {
+        source.name
+        for source in DEFAULT_SOURCES
+        if source.metadata.get("enabled", True)
+    }
+    profiles: list[SourceProfile] = []
+    for profile in DEFAULT_SOURCE_PROFILES:
+        enabled_names = [name for name in profile.source_names if name in available_enabled]
+        profiles.append(
+            SourceProfile(
+                name=profile.name,
+                label=profile.label,
+                category=profile.category,
+                source_names=enabled_names,
+                default_limit=profile.default_limit,
+                analyze=profile.analyze,
+                fetch_details=profile.fetch_details,
+                clean_html_details=profile.clean_html_details,
+                notes=profile.notes,
+            )
+        )
+    return profiles
+
+
+def get_source_profile(name: str) -> SourceProfile:
+    for profile in list_source_profiles():
+        if profile.name == name:
+            return profile
+    names = ", ".join(profile.name for profile in DEFAULT_SOURCE_PROFILES)
+    raise KeyError(f"Unknown source profile '{name}'. Available profiles: {names}")

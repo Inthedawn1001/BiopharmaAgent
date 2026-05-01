@@ -207,6 +207,46 @@ button.ghost {
   margin-bottom: 16px;
 }
 
+.profile-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.profile-button {
+  display: grid;
+  gap: 4px;
+  align-content: center;
+  min-height: 64px;
+  text-align: left;
+  background: #fff;
+  color: var(--text);
+  border: 1px solid var(--line);
+}
+
+.profile-button:hover,
+.profile-button.active {
+  background: #e8f3f6;
+  border-color: #8db8c5;
+  color: var(--accent-strong);
+}
+
+.profile-button strong,
+.profile-button span {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profile-button span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 650;
+}
+
 .source-health {
   margin-bottom: 16px;
 }
@@ -833,6 +873,7 @@ textarea {
   .metric-grid,
   .settings-grid,
   .form-grid,
+  .profile-strip,
   .run-summary-grid,
   .detail-metrics,
   .diagnostics-grid {
