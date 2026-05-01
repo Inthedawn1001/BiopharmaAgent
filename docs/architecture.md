@@ -79,7 +79,10 @@ variant used by recurring collection commands. PostgreSQL can be enabled with
 
 PostgreSQL tables separate source metadata, normalized documents, insight
 payloads, entities, events, relations, risk signals, and feedback. The full
-schema lives in `infra/postgres/schema.sql`.
+schema lives in `infra/postgres/schema.sql`. The `migrate-postgres` CLI command
+applies that schema idempotently and records its checksum in `schema_migrations`,
+so local Docker, smoke tests, Airflow wrappers, and later CI jobs can prepare
+the database through the same entry point.
 
 Document listing uses a shared filter contract. JSONL evaluates that contract
 in process; PostgreSQL pushes source, event type, risk, keyword search, sorting,

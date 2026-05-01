@@ -30,6 +30,7 @@ from biopharma_agent.ops.llm_observer import ObservedLLMProvider
 from biopharma_agent.ops.logging import configure_logging
 from biopharma_agent.ops.metrics import InMemoryMetrics
 from biopharma_agent.storage.factory import create_analysis_repository, create_raw_archive
+from biopharma_agent.storage.migrations import PostgresMigrationRunner
 from biopharma_agent.web.server import run_server
 
 
@@ -42,6 +43,21 @@ def main(argv: list[str] | None = None) -> int:
     subparsers.add_parser("plan", help="Print the current development execution plan.")
     subparsers.add_parser("diagnose", help="Print a secret-safe runtime diagnostics report.")
     subparsers.add_parser("llm-check", help="Send a small health-check request to the LLM.")
+
+    migrate_postgres = subparsers.add_parser(
+        "migrate-postgres",
+        help="Apply the PostgreSQL schema and record migration version metadata.",
+    )
+    migrate_postgres.add_argument(
+        "--schema",
+        type=Path,
+        default=Path("infra/postgres/schema.sql"),
+        help="Path to schema SQL.",
+    )
+    migrate_postgres.add_argument(
+        "--dsn",
+        help="PostgreSQL DSN. Defaults to BIOPHARMA_POSTGRES_DSN.",
+    )
 
     analyze = subparsers.add_parser("analyze-text", help="Analyze text with the configured LLM.")
     input_group = analyze.add_mutually_exclusive_group(required=True)
@@ -245,6 +261,12 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "diagnose":
         print(json.dumps(diagnose_environment(), ensure_ascii=False, indent=2))
+        return 0
+
+    if args.command == "migrate-postgres":
+        dsn = args.dsn or AgentSettings.from_env().storage.postgres_dsn
+        result = PostgresMigrationRunner(dsn, schema_path=args.schema).migrate()
+        print(json.dumps(result.to_dict(), ensure_ascii=False, indent=2))
         return 0
 
     if args.command == "analyze-deterministic":

@@ -42,6 +42,7 @@
   (Local compose service and opt-in unittest are in place; CI wiring is still pending.)
 - Add optional MinIO/S3 integration test that creates a bucket and writes a raw document.
 - Add migration runner/versioning instead of applying raw SQL manually.
+  (`migrate-postgres` records `schema_migrations` with the schema checksum.)
 
 ## Phase 5: Analysis Layer
 

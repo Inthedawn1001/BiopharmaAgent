@@ -156,10 +156,12 @@ python3 -m pip install "psycopg[binary]>=3"
 docker compose up -d postgres
 export BIOPHARMA_STORAGE_BACKEND=postgres
 export BIOPHARMA_POSTGRES_DSN="postgresql://biopharma:biopharma@127.0.0.1:55432/biopharma_agent"
+PYTHONPATH=src python3 -m biopharma_agent.cli migrate-postgres
 scripts/run_postgres_integration.sh
 ```
 
-如果不用 Docker Compose，也可以手动创建数据库并执行 `infra/postgres/schema.sql`。
+`migrate-postgres` 会幂等执行 `infra/postgres/schema.sql`，并把 schema checksum 写入
+`schema_migrations`。如果不用 Docker Compose，也可以手动创建数据库后运行同一条迁移命令。
 
 MinIO/S3 原始文档归档可选启用：
 
