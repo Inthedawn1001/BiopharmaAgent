@@ -192,6 +192,14 @@ class WebApiTest(unittest.TestCase):
         self.assertIn("sec_biopharma_filings", names)
         self.assertEqual(names["sec_biopharma_filings"]["collector"], "sec_submissions")
 
+    def test_list_source_state_includes_never_run_sources(self):
+        with tempfile.TemporaryDirectory(dir=Path.cwd()) as temp_dir:
+            data = api.list_source_state(Path(temp_dir) / "source_state.json")
+
+            names = {item["source"]: item for item in data["items"]}
+            self.assertIn("fda_press_releases", names)
+            self.assertEqual(names["fda_press_releases"]["last_status"], "never_run")
+
     def test_diagnostics_endpoint_shape(self):
         data = api.diagnostics()
 
@@ -214,12 +222,19 @@ class WebApiTest(unittest.TestCase):
                     "output": str(Path(temp_dir) / "insights.jsonl"),
                     "archive_dir": str(Path(temp_dir) / "raw"),
                     "graph_dir": str(Path(temp_dir) / "graph"),
+                    "state_path": str(Path(temp_dir) / "source_state.json"),
+                    "incremental": True,
                 }
             )
 
             self.assertTrue(data["ok"])
             self.assertTrue(run_log.exists())
             self.assertEqual(data["record"]["status"], "success")
+            self.assertTrue(data["record"]["metadata"]["incremental"])
+            self.assertEqual(
+                data["record"]["metadata"]["state_path"],
+                str((Path(temp_dir) / "source_state.json").resolve()),
+            )
 
     def test_trigger_fetch_job_records_failure(self):
         with tempfile.TemporaryDirectory(dir=Path.cwd()) as temp_dir, patch(

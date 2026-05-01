@@ -111,6 +111,12 @@ with status, timing, result, error, and metadata. This gives cron, local
 development, and Airflow the same execution path: run the CLI once, or loop it
 with an interval.
 
+Collection also maintains local source state in `data/runs/source_state.json`
+unless disabled by the caller. The state file records the latest source health,
+consecutive failures, selected document IDs, and seen document IDs. CLI and web
+jobs can enable incremental mode so already-seen document IDs are skipped before
+analysis, while failures still update source health for diagnosis.
+
 The Airflow DAG in `infra/airflow/dags` intentionally shells out to
 `scheduled-fetch --max-runs 1`. Airflow handles external orchestration while the
 agent keeps ownership of source selection, LLM configuration, storage, raw

@@ -178,6 +178,7 @@ class HTMLListingTest(unittest.TestCase):
                 output=Path("unused/insights.jsonl"),
                 graph_dir=Path("unused/graph"),
                 no_graph=True,
+                update_state=False,
             )
 
         self.assertEqual(summary[0]["source"], "html_source")
@@ -221,6 +222,7 @@ class HTMLListingTest(unittest.TestCase):
                 fetch_details=True,
                 detail_delay_seconds=0,
                 clean_html_details=True,
+                update_state=False,
             )
 
         self.assertEqual(summary[0]["details_fetched"], 1)

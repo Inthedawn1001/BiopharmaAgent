@@ -1,10 +1,13 @@
+import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
 
 from biopharma_agent.cli import _fetch_and_optionally_analyze_sources, run_fetch_sources_job
 from biopharma_agent.collection.feed import FeedFetcher, FeedFetchResult, FeedItem, parse_feed
+from biopharma_agent.collection.runner import CollectionOptions, collect_source
 from biopharma_agent.contracts import SourceRef
+from biopharma_agent.orchestration.source_state import LocalSourceStateStore
 from biopharma_agent.sources import get_default_source, list_default_sources
 
 
@@ -79,6 +82,7 @@ class FeedCollectionTest(unittest.TestCase):
                 output=Path("unused/insights.jsonl"),
                 graph_dir=Path("unused/graph"),
                 no_graph=True,
+                update_state=False,
             )
 
         self.assertEqual(summary[0]["source"], "fda_press_releases")
@@ -133,12 +137,70 @@ class FeedCollectionTest(unittest.TestCase):
                 output=Path("unused/insights.jsonl"),
                 graph_dir=Path("unused/graph"),
                 no_graph=True,
+                update_state=False,
             )
 
         sleep.assert_called_once_with(0.01)
         self.assertEqual(summary[0]["kind"], "industry_news_feed")
         self.assertEqual(summary[0]["category"], "custom_category")
         self.assertEqual(summary[0]["priority"], 77)
+
+    def test_collect_source_filters_seen_documents_when_incremental(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            state_path = Path(temp_dir) / "source_state.json"
+            source = SourceRef(
+                name="fda_press_releases",
+                kind="regulatory_feed",
+                url="https://example.test/rss",
+            )
+            fetch_result = FeedFetchResult(
+                source=source,
+                feed_url=source.url or "",
+                status_code=200,
+                items=[
+                    FeedItem(
+                        title="Existing update",
+                        link="https://example.test/news/1",
+                        summary="Already seen",
+                        published=None,
+                        guid="item-1",
+                    ),
+                    FeedItem(
+                        title="New update",
+                        link="https://example.test/news/2",
+                        summary="New item",
+                        published=None,
+                        guid="item-2",
+                    ),
+                ],
+            )
+            store = LocalSourceStateStore(state_path)
+            first_doc = fetch_result.to_raw_documents(limit=1)[0]
+            store.record_success(
+                source,
+                started_at=first_doc.collected_at,
+                completed_at=first_doc.collected_at,
+                summary={"selected": 1},
+                documents=[first_doc],
+            )
+
+            with patch("biopharma_agent.collection.runner.FeedFetcher") as fetcher_class:
+                fetcher_class.return_value.fetch.return_value = fetch_result
+                summary = collect_source(
+                    source=source,
+                    options=CollectionOptions(
+                        limit=2,
+                        incremental=True,
+                        state_path=state_path,
+                        update_state=True,
+                    ),
+                )
+
+            self.assertEqual(summary["fetched"], 2)
+            self.assertEqual(summary["selected"], 1)
+            self.assertEqual(summary["skipped_seen"], 1)
+            self.assertTrue(summary["incremental"])
+            self.assertEqual(LocalSourceStateStore(state_path).get_record(source.name)["seen_count"], 2)
 
 
 if __name__ == "__main__":

@@ -11,6 +11,7 @@ const state = {
   runsLimit: 20,
   runsHasMore: false,
   sources: [],
+  sourceState: [],
 };
 
 const $ = (selector) => document.querySelector(selector);
@@ -213,6 +214,51 @@ function renderRunsTable(data) {
     });
     body.appendChild(tr);
   }
+}
+
+function renderSourceState(data) {
+  const rows = data.items || [];
+  state.sourceState = rows;
+  const summary = data.summary || {};
+  $("#source-state-count").textContent =
+    `${rows.length} sources · ${summary.success ?? 0} healthy · ${summary.failed ?? 0} failed · ${summary.seen_documents ?? 0} seen documents`;
+
+  const body = $("#source-state-table-body");
+  body.innerHTML = "";
+  if (!rows.length) {
+    const tr = document.createElement("tr");
+    const td = document.createElement("td");
+    td.colSpan = 7;
+    td.textContent = "No source state yet.";
+    tr.appendChild(td);
+    body.appendChild(tr);
+    return;
+  }
+
+  for (const row of rows) {
+    const tr = document.createElement("tr");
+    tr.appendChild(sourceStateNameCell(row));
+    tr.appendChild(statusCell(row.last_status || "never_run"));
+    tr.appendChild(textCell(String(row.seen_count ?? 0)));
+    tr.appendChild(textCell(String(row.last_selected ?? 0)));
+    tr.appendChild(textCell(String(row.last_analyzed ?? 0)));
+    tr.appendChild(textCell(String(row.last_skipped_seen ?? 0)));
+    tr.appendChild(textCell(shortDate(row.last_completed_at || row.updated_at)));
+    body.appendChild(tr);
+  }
+}
+
+function sourceStateNameCell(row) {
+  const td = document.createElement("td");
+  const title = document.createElement("div");
+  title.className = "table-title";
+  title.textContent = row.source || "-";
+  const subtext = document.createElement("div");
+  subtext.className = "table-subtext";
+  const error = row.last_error ? ` · ${row.last_error}` : "";
+  subtext.textContent = `${row.collector || "feed"} · ${row.category || "-"}${error}`;
+  td.append(title, subtext);
+  return td;
 }
 
 function titleRunCell(row) {
@@ -500,6 +546,7 @@ async function loadHealthAndConfig() {
   }
 
   await loadSources();
+  await loadSourceState();
   await loadDiagnostics();
 }
 
@@ -548,6 +595,15 @@ async function loadDiagnostics() {
     $("#diagnostics-status").textContent = "failed";
     $("#diagnostics-status").className = "badge status-failed";
   }
+}
+
+async function loadSourceState() {
+  const input = $("#job-state-path");
+  const path = input ? input.value : "data/runs/source_state.json";
+  const params = new URLSearchParams({ path });
+  const data = await getJson(`/api/source-state?${params.toString()}`);
+  renderSourceState(data);
+  return data;
 }
 
 function renderDiagnostics(data) {
@@ -790,6 +846,8 @@ function wireActions() {
         analyze: $("#job-analyze").checked,
         fetch_details: $("#job-fetch-details").checked,
         clean_html_details: $("#job-clean-html").checked,
+        incremental: $("#job-incremental").checked,
+        state_path: $("#job-state-path").value,
         run_log: $("#runs-path").value,
         output: $("#job-output").value,
         archive_dir: "data/raw",
@@ -804,6 +862,7 @@ function wireActions() {
       try {
         state.runsOffset = 0;
         renderRunsTable(await loadRuns());
+        await loadSourceState();
         state.documentsOffset = 0;
         renderDocumentTable(await loadDocuments());
       } catch {
@@ -816,6 +875,17 @@ function wireActions() {
     setLoading(button, true);
     try {
       await loadDiagnostics();
+    } finally {
+      setLoading(button, false);
+    }
+  });
+  $("#load-source-state-button").addEventListener("click", async (event) => {
+    const button = event.currentTarget;
+    setLoading(button, true);
+    try {
+      await loadSourceState();
+    } catch (error) {
+      $("#source-state-count").textContent = error.message;
     } finally {
       setLoading(button, false);
     }

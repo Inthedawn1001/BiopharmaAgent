@@ -203,6 +203,17 @@ button.ghost {
   margin-bottom: 16px;
 }
 
+.source-health {
+  margin-bottom: 16px;
+}
+
+.source-health-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
 .inline-check {
   display: inline-flex;
   align-items: center;
@@ -338,6 +349,10 @@ textarea {
   min-width: 920px;
 }
 
+.source-state-table {
+  min-width: 900px;
+}
+
 .data-table th,
 .data-table td {
   text-align: left;
@@ -448,6 +463,11 @@ textarea {
 .badge.status-ok {
   background: #dcfce7;
   color: var(--success);
+}
+
+.badge.status-never_run {
+  background: #eef2f7;
+  color: #475467;
 }
 
 .run-summary-grid {

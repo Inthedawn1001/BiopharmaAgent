@@ -92,6 +92,12 @@ class WorkbenchRequestHandler(BaseHTTPRequestHandler):
             self._write_json(api.list_runs(path, limit=limit, offset=offset))
             return
 
+        if parsed.path == "/api/source-state":
+            query = parse_qs(parsed.query)
+            path = query.get("path", ["data/runs/source_state.json"])[0]
+            self._write_json(api.list_source_state(path))
+            return
+
         if parsed.path.startswith("/api/"):
             self._write_json({"error": "not_found"}, HTTPStatus.NOT_FOUND)
             return

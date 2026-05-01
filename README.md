@@ -110,10 +110,20 @@ PYTHONPATH=src python3 -m biopharma_agent.cli fetch-sources \
   --limit 1 \
   --fetch-details \
   --clean-html-details \
+  --incremental \
   --analyze
 ```
 
 `fetch-sources` dispatches by source metadata to the correct collector: RSS/Atom, HTML listing, ASX announcements, or SEC submissions. ASX defaults to the `CSL/COH/RMD` watchlist. SEC defaults to Pfizer, Moderna, Amgen, Gilead, and Regeneron filings for `8-K/10-K/10-Q/S-1/424B*`. FDA press releases and MedWatch use official RSS feeds; `--fetch-details` deep-fetches detail pages and can clean main body text.
+
+Each collection command updates `data/runs/source_state.json` by default with the latest source status, selected document IDs, skipped duplicate count, and consecutive failure count. Use `--incremental` to skip documents whose IDs are already recorded for that source. Use `--state-path` for a different state file, `--no-update-state` for stateless test runs, and `source-state` to inspect health:
+
+```bash
+PYTHONPATH=src python3 -m biopharma_agent.cli source-state
+PYTHONPATH=src python3 -m biopharma_agent.cli fetch-source fda_press_releases \
+  --limit 5 \
+  --incremental
+```
 
 Fetch HTML listing sources:
 
@@ -202,7 +212,7 @@ Start the local web workbench:
 PYTHONPATH=src python3 -m biopharma_agent.cli serve --host 127.0.0.1 --port 8765
 ```
 
-Then visit `http://127.0.0.1:8765`. The workbench includes document analysis, document inbox, run monitoring, manual fetch triggers, LLM extraction, task routing, human feedback, feedback browsing, time-series analysis, model settings, and runtime diagnostics. The inbox supports filtering by source, event type, risk, and keyword, plus pagination and sorting. The run monitor can trigger selected sources and uses the configured LLM for real analysis by default. If the API key is missing, the job fails and writes a run log for troubleshooting. Runtime diagnostics check LLM, storage, raw archive, sources, Docker, and GitHub sync state. The diagnostics API reports whether credentials are present but never returns secret values.
+Then visit `http://127.0.0.1:8765`. The workbench includes document analysis, document inbox, run monitoring, manual fetch triggers, LLM extraction, task routing, human feedback, feedback browsing, time-series analysis, model settings, and runtime diagnostics. The inbox supports filtering by source, event type, risk, and keyword, plus pagination and sorting. The run monitor can trigger selected sources, enable incremental collection, and show source health from the source state file. It uses the configured LLM for real analysis by default. If the API key is missing, the job fails and writes a run log for troubleshooting. Runtime diagnostics check LLM, storage, raw archive, sources, Docker, and GitHub sync state. The diagnostics API reports whether credentials are present but never returns secret values.
 
 ## Architecture Entry Points
 

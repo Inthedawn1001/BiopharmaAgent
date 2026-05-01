@@ -17,6 +17,7 @@ from biopharma_agent.collection.runner import CollectionOptions, collect_sources
 from biopharma_agent.config import AgentSettings
 from biopharma_agent.demo import seed_demo_data
 from biopharma_agent.orchestration.scheduler import LocalRunLog, RecurringRunner
+from biopharma_agent.orchestration.source_state import state_summary
 from biopharma_agent.orchestration.workflow import LocalDocumentWorkflow
 from biopharma_agent.sources import get_default_source, list_default_sources
 from biopharma_agent.storage.graph import LocalKnowledgeGraphWriter
@@ -107,6 +108,9 @@ def main(argv: list[str] | None = None) -> int:
     list_sources.add_argument("--kind", help="Filter by source kind.")
     list_sources.add_argument("--category", help="Filter by source metadata category.")
 
+    source_state = subparsers.add_parser("source-state", help="List source health and incremental state.")
+    source_state.add_argument("--state-path", type=Path, default=Path("data/runs/source_state.json"))
+
     fetch_source = subparsers.add_parser("fetch-source", help="Fetch one built-in RSS/Atom source.")
     fetch_source.add_argument("source")
     fetch_source.add_argument("--limit", type=int, default=5)
@@ -122,6 +126,9 @@ def main(argv: list[str] | None = None) -> int:
     fetch_source.add_argument("--fetch-details", action="store_true")
     fetch_source.add_argument("--detail-delay-seconds", type=float, default=1.0)
     fetch_source.add_argument("--clean-html-details", action="store_true")
+    fetch_source.add_argument("--state-path", type=Path, default=Path("data/runs/source_state.json"))
+    fetch_source.add_argument("--incremental", action="store_true")
+    fetch_source.add_argument("--no-update-state", action="store_true")
 
     fetch_sources = subparsers.add_parser(
         "fetch-sources",
@@ -137,6 +144,9 @@ def main(argv: list[str] | None = None) -> int:
     fetch_sources.add_argument("--fetch-details", action="store_true")
     fetch_sources.add_argument("--detail-delay-seconds", type=float, default=1.0)
     fetch_sources.add_argument("--clean-html-details", action="store_true")
+    fetch_sources.add_argument("--state-path", type=Path, default=Path("data/runs/source_state.json"))
+    fetch_sources.add_argument("--incremental", action="store_true")
+    fetch_sources.add_argument("--no-update-state", action="store_true")
 
     fetch_html_source = subparsers.add_parser(
         "fetch-html-source",
@@ -156,6 +166,9 @@ def main(argv: list[str] | None = None) -> int:
     fetch_html_source.add_argument("--output", type=Path, default=Path("data/processed/insights.jsonl"))
     fetch_html_source.add_argument("--graph-dir", type=Path, default=Path("data/graph"))
     fetch_html_source.add_argument("--no-graph", action="store_true", help="Do not write graph JSONL.")
+    fetch_html_source.add_argument("--state-path", type=Path, default=Path("data/runs/source_state.json"))
+    fetch_html_source.add_argument("--incremental", action="store_true")
+    fetch_html_source.add_argument("--no-update-state", action="store_true")
 
     fetch_html_sources = subparsers.add_parser(
         "fetch-html-sources",
@@ -175,6 +188,9 @@ def main(argv: list[str] | None = None) -> int:
     fetch_html_sources.add_argument("--output", type=Path, default=Path("data/processed/insights.jsonl"))
     fetch_html_sources.add_argument("--graph-dir", type=Path, default=Path("data/graph"))
     fetch_html_sources.add_argument("--no-graph", action="store_true", help="Do not write graph JSONL.")
+    fetch_html_sources.add_argument("--state-path", type=Path, default=Path("data/runs/source_state.json"))
+    fetch_html_sources.add_argument("--incremental", action="store_true")
+    fetch_html_sources.add_argument("--no-update-state", action="store_true")
 
     scheduled_fetch = subparsers.add_parser(
         "scheduled-fetch",
@@ -198,6 +214,9 @@ def main(argv: list[str] | None = None) -> int:
     scheduled_fetch.add_argument("--graph-dir", type=Path, default=Path("data/graph"))
     scheduled_fetch.add_argument("--run-log", type=Path, default=Path("data/runs/fetch_runs.jsonl"))
     scheduled_fetch.add_argument("--no-graph", action="store_true", help="Do not write graph JSONL.")
+    scheduled_fetch.add_argument("--state-path", type=Path, default=Path("data/runs/source_state.json"))
+    scheduled_fetch.add_argument("--incremental", action="store_true")
+    scheduled_fetch.add_argument("--no-update-state", action="store_true")
     scheduled_fetch.add_argument(
         "--stop-on-error",
         action="store_true",
@@ -305,6 +324,16 @@ def main(argv: list[str] | None = None) -> int:
         print(
             json.dumps(
                 [asdict(source) for source in list_default_sources(args.kind, args.category)],
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
+        return 0
+
+    if args.command == "source-state":
+        print(
+            json.dumps(
+                state_summary(args.state_path, sources=list_default_sources()),
                 ensure_ascii=False,
                 indent=2,
             )
@@ -429,6 +458,9 @@ def main(argv: list[str] | None = None) -> int:
             fetch_details=args.fetch_details,
             detail_delay_seconds=args.detail_delay_seconds,
             clean_html_details=args.clean_html_details,
+            state_path=args.state_path,
+            incremental=args.incremental,
+            update_state=not args.no_update_state,
         )
         print(json.dumps(summary, ensure_ascii=False, indent=2, default=str))
         return 0
@@ -448,6 +480,9 @@ def main(argv: list[str] | None = None) -> int:
             fetch_details=args.fetch_details,
             detail_delay_seconds=args.detail_delay_seconds,
             clean_html_details=args.clean_html_details,
+            state_path=args.state_path,
+            incremental=args.incremental,
+            update_state=not args.no_update_state,
         )
         print(json.dumps(summary, ensure_ascii=False, indent=2, default=str))
         return 0
@@ -466,6 +501,9 @@ def main(argv: list[str] | None = None) -> int:
             fetch_details=args.fetch_details,
             detail_delay_seconds=args.detail_delay_seconds,
             clean_html_details=args.clean_html_details,
+            state_path=args.state_path,
+            incremental=args.incremental,
+            update_state=not args.no_update_state,
         )
         print(json.dumps(summary, ensure_ascii=False, indent=2, default=str))
         return 0
@@ -490,6 +528,9 @@ def main(argv: list[str] | None = None) -> int:
             fetch_details=args.fetch_details,
             detail_delay_seconds=args.detail_delay_seconds,
             clean_html_details=args.clean_html_details,
+            state_path=args.state_path,
+            incremental=args.incremental,
+            update_state=not args.no_update_state,
         )
         print(json.dumps(summary, ensure_ascii=False, indent=2, default=str))
         return 0
@@ -510,6 +551,9 @@ def main(argv: list[str] | None = None) -> int:
                 fetch_details=args.fetch_details,
                 detail_delay_seconds=args.detail_delay_seconds,
                 clean_html_details=args.clean_html_details,
+                state_path=args.state_path,
+                incremental=args.incremental,
+                update_state=not args.no_update_state,
             )
 
         records = runner.run_forever(
@@ -524,6 +568,9 @@ def main(argv: list[str] | None = None) -> int:
                 "analyze": args.analyze,
                 "fetch_details": args.fetch_details,
                 "clean_html_details": args.clean_html_details,
+                "incremental": args.incremental,
+                "update_state": not args.no_update_state,
+                "state_path": str(args.state_path),
             },
         )
         print(json.dumps([asdict(record) for record in records], ensure_ascii=False, indent=2, default=str))
@@ -558,6 +605,9 @@ def _fetch_and_optionally_analyze_sources(
     fetch_details: bool = False,
     detail_delay_seconds: float = 1.0,
     clean_html_details: bool = False,
+    state_path: Path = Path("data/runs/source_state.json"),
+    incremental: bool = False,
+    update_state: bool = True,
 ) -> list[dict[str, object]]:
     return collect_sources(
         sources=sources,
@@ -571,6 +621,9 @@ def _fetch_and_optionally_analyze_sources(
             graph_dir=graph_dir,
             no_graph=no_graph,
             detail_delay_seconds=detail_delay_seconds,
+            state_path=state_path,
+            incremental=incremental,
+            update_state=update_state,
         ),
         provider=provider,
     )
@@ -588,6 +641,9 @@ def _fetch_and_optionally_analyze_html_sources(
     fetch_details: bool = False,
     detail_delay_seconds: float = 1.0,
     clean_html_details: bool = False,
+    state_path: Path = Path("data/runs/source_state.json"),
+    incremental: bool = False,
+    update_state: bool = True,
 ) -> list[dict[str, object]]:
     for source in sources:
         if source.metadata.get("collector") != "html_listing":
@@ -604,6 +660,9 @@ def _fetch_and_optionally_analyze_html_sources(
         fetch_details=fetch_details,
         detail_delay_seconds=detail_delay_seconds,
         clean_html_details=clean_html_details,
+        state_path=state_path,
+        incremental=incremental,
+        update_state=update_state,
     )
 
 
@@ -619,6 +678,9 @@ def run_fetch_sources_job(
     fetch_details: bool = False,
     detail_delay_seconds: float = 1.0,
     clean_html_details: bool = False,
+    state_path: Path = Path("data/runs/source_state.json"),
+    incremental: bool = False,
+    update_state: bool = True,
 ) -> list[dict[str, object]]:
     settings = AgentSettings.from_env()
     provider = create_llm_provider(settings.llm) if analyze else None
@@ -636,6 +698,9 @@ def run_fetch_sources_job(
         fetch_details=fetch_details,
         detail_delay_seconds=detail_delay_seconds,
         clean_html_details=clean_html_details,
+        state_path=state_path,
+        incremental=incremental,
+        update_state=update_state,
     )
 
 

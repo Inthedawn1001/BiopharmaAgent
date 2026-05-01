@@ -20,6 +20,7 @@ from biopharma_agent.llm.factory import create_llm_provider
 from biopharma_agent.ops.diagnostics import diagnose_environment
 from biopharma_agent.ops.factory import create_feedback_repository
 from biopharma_agent.ops.feedback import FeedbackRecord, LocalFeedbackRepository
+from biopharma_agent.orchestration.source_state import state_summary
 from biopharma_agent.orchestration.scheduler import JobRunRecord, LocalRunLog
 from biopharma_agent.sources import get_default_source, list_default_sources
 from biopharma_agent.storage.factory import create_analysis_repository
@@ -66,6 +67,10 @@ def list_sources(kind: str = "", category: str = "") -> dict[str, Any]:
         "items": [source_summary(source) for source in sources],
         "count": len(sources),
     }
+
+
+def list_source_state(path: str | Path = "data/runs/source_state.json") -> dict[str, Any]:
+    return state_summary(_safe_workspace_path(path), sources=list_default_sources())
 
 
 def analyze_deterministic(payload: dict[str, Any]) -> dict[str, Any]:
@@ -208,6 +213,9 @@ def trigger_fetch_job(payload: dict[str, Any]) -> dict[str, Any]:
         graph_dir=_safe_workspace_path(str(payload.get("graph_dir") or "data/graph")),
         no_graph=_bool_value(payload.get("no_graph", False)),
         detail_delay_seconds=float(payload.get("detail_delay_seconds", 0.0)),
+        state_path=_safe_workspace_path(str(payload.get("state_path") or "data/runs/source_state.json")),
+        incremental=_bool_value(payload.get("incremental", False)),
+        update_state=_bool_value(payload.get("update_state", True)),
     )
     started_at = utc_now()
     run_id = f"web-{started_at.strftime('%Y%m%d%H%M%S%f')}"
@@ -230,6 +238,9 @@ def trigger_fetch_job(payload: dict[str, Any]) -> dict[str, Any]:
                 "analyze": options.analyze,
                 "fetch_details": options.fetch_details,
                 "clean_html_details": options.clean_html_details,
+                "incremental": options.incremental,
+                "update_state": options.update_state,
+                "state_path": str(options.state_path),
             },
         )
     except Exception as exc:
@@ -248,6 +259,9 @@ def trigger_fetch_job(payload: dict[str, Any]) -> dict[str, Any]:
                 "analyze": options.analyze,
                 "fetch_details": options.fetch_details,
                 "clean_html_details": options.clean_html_details,
+                "incremental": options.incremental,
+                "update_state": options.update_state,
+                "state_path": str(options.state_path),
             },
         )
     LocalRunLog(run_log_path).append(record)

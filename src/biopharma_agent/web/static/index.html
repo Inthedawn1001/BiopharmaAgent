@@ -168,6 +168,10 @@
                 Result File
                 <input id="job-output" value="data/processed/insights.jsonl" />
               </label>
+              <label>
+                Source State File
+                <input id="job-state-path" value="data/runs/source_state.json" />
+              </label>
             </div>
             <div class="button-row">
               <label class="inline-check">
@@ -182,9 +186,38 @@
                 <input id="job-clean-html" type="checkbox" checked />
                 Clean body text
               </label>
+              <label class="inline-check">
+                <input id="job-incremental" type="checkbox" />
+                Incremental only
+              </label>
               <button id="trigger-fetch-button">Trigger Fetch</button>
             </div>
             <pre id="job-output-json" class="json-view compact">Waiting for a job.</pre>
+          </div>
+          <div class="source-health">
+            <div class="source-health-header">
+              <div>
+                <div class="section-title">Source Health</div>
+                <div id="source-state-count" class="table-count">0 sources</div>
+              </div>
+              <button id="load-source-state-button" class="secondary">Refresh Source Health</button>
+            </div>
+            <div class="table-wrap">
+              <table class="data-table source-state-table">
+                <thead>
+                  <tr>
+                    <th>Source</th>
+                    <th>Status</th>
+                    <th>Seen</th>
+                    <th>Selected</th>
+                    <th>Analyzed</th>
+                    <th>Skipped</th>
+                    <th>Updated</th>
+                  </tr>
+                </thead>
+                <tbody id="source-state-table-body"></tbody>
+              </table>
+            </div>
           </div>
           <div class="inbox-toolbar">
             <label>
