@@ -50,6 +50,66 @@ class AirflowDagTest(unittest.TestCase):
         self.assertEqual(summary["source_state_rows"], 1)
         self.assertEqual(summary["source_state_seen"], 1)
 
+    def test_run_fetch_sources_can_use_profile(self):
+        module = _load_dag_module()
+        with tempfile.TemporaryDirectory() as temp_dir:
+            run_log = Path(temp_dir) / "runs.jsonl"
+            source_state = Path(temp_dir) / "source_state.json"
+            _write_success_run(run_log)
+            _write_source_state(source_state)
+            calls = []
+
+            def fake_run(command, check):
+                calls.append(command)
+                self.assertTrue(check)
+
+            with patch.dict(
+                "os.environ",
+                {
+                    "BIOPHARMA_AIRFLOW_PROFILE": "global_safety_alerts",
+                    "BIOPHARMA_AIRFLOW_SOURCES": "",
+                    "BIOPHARMA_AIRFLOW_RUN_LOG": str(run_log),
+                    "BIOPHARMA_AIRFLOW_SOURCE_STATE": str(source_state),
+                    "BIOPHARMA_AIRFLOW_PYTHON": "python-test",
+                },
+            ), patch.object(module.subprocess, "run", side_effect=fake_run):
+                module.run_fetch_sources()
+
+        command = calls[0]
+        self.assertIn("--profile", command)
+        self.assertIn("global_safety_alerts", command)
+        self.assertNotIn("--sources", command)
+
+    def test_run_fetch_sources_prefers_explicit_sources_over_profile(self):
+        module = _load_dag_module()
+        with tempfile.TemporaryDirectory() as temp_dir:
+            run_log = Path(temp_dir) / "runs.jsonl"
+            source_state = Path(temp_dir) / "source_state.json"
+            _write_success_run(run_log)
+            _write_source_state(source_state)
+            calls = []
+
+            def fake_run(command, check):
+                calls.append(command)
+                self.assertTrue(check)
+
+            with patch.dict(
+                "os.environ",
+                {
+                    "BIOPHARMA_AIRFLOW_PROFILE": "global_safety_alerts",
+                    "BIOPHARMA_AIRFLOW_SOURCES": "fda_press_releases",
+                    "BIOPHARMA_AIRFLOW_RUN_LOG": str(run_log),
+                    "BIOPHARMA_AIRFLOW_SOURCE_STATE": str(source_state),
+                    "BIOPHARMA_AIRFLOW_PYTHON": "python-test",
+                },
+            ), patch.object(module.subprocess, "run", side_effect=fake_run):
+                module.run_fetch_sources()
+
+        command = calls[0]
+        self.assertIn("--sources", command)
+        self.assertIn("fda_press_releases", command)
+        self.assertNotIn("--profile", command)
+
 
 def _load_dag_module():
     airflow = types.ModuleType("airflow")

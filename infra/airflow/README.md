@@ -8,13 +8,14 @@ command, so Airflow only needs to invoke the same CLI entrypoint.
 
 ```bash
 PYTHONPATH=src python3 -m biopharma_agent.cli scheduled-fetch \
-  --sources fda_press_releases biopharma_dive_news \
+  --profile global_safety_alerts \
   --limit 2 \
   --max-runs 1 \
   --run-log data/runs/fetch_runs.jsonl
 ```
 
-Add `--analyze` after configuring an LLM provider.
+Add `--analyze` after configuring an LLM provider. Use `--sources` instead of
+`--profile` when a DAG run needs an explicit source list.
 
 ## Airflow Deployment
 
@@ -23,7 +24,8 @@ Add `--analyze` after configuring an LLM provider.
 3. Set environment variables as needed:
 
 ```bash
-BIOPHARMA_AIRFLOW_SOURCES="fda_press_releases biopharma_dive_news"
+BIOPHARMA_AIRFLOW_PROFILE=global_safety_alerts
+BIOPHARMA_AIRFLOW_SOURCES=""
 BIOPHARMA_AIRFLOW_LIMIT=2
 BIOPHARMA_AIRFLOW_ANALYZE=0
 BIOPHARMA_AIRFLOW_SCHEDULE="0 * * * *"
@@ -34,6 +36,11 @@ BIOPHARMA_AIRFLOW_FETCH_DETAILS=1
 BIOPHARMA_AIRFLOW_CLEAN_HTML_DETAILS=1
 BIOPHARMA_AIRFLOW_PYTHON=python3
 ```
+
+`BIOPHARMA_AIRFLOW_PROFILE` accepts the same built-in profiles shown by
+`list-source-profiles`, such as `core_intelligence`, `global_safety_alerts`,
+`market_filings`, and `industry_news`. `BIOPHARMA_AIRFLOW_SOURCES` still accepts
+a space-separated source list and takes precedence when set.
 
 The DAG intentionally shells out to the CLI. That keeps Airflow thin and avoids
 duplicating source selection, storage, graph, and LLM configuration logic.

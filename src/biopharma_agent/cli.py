@@ -20,7 +20,7 @@ from biopharma_agent.demo import seed_demo_data
 from biopharma_agent.orchestration.scheduler import LocalRunLog, RecurringRunner
 from biopharma_agent.orchestration.source_state import source_state_summary
 from biopharma_agent.orchestration.workflow import LocalDocumentWorkflow
-from biopharma_agent.sources import get_default_source, list_default_sources
+from biopharma_agent.sources import get_default_source, get_source_profile, list_default_sources, list_source_profiles
 from biopharma_agent.storage.local import LocalAnalysisRepository
 from biopharma_agent.llm.factory import create_llm_provider
 from biopharma_agent.llm.types import ChatMessage, LLMRequest
@@ -119,6 +119,8 @@ def main(argv: list[str] | None = None) -> int:
     list_sources.add_argument("--kind", help="Filter by source kind.")
     list_sources.add_argument("--category", help="Filter by source metadata category.")
 
+    subparsers.add_parser("list-source-profiles", help="List built-in source profiles.")
+
     source_state = subparsers.add_parser("source-state", help="List source health and incremental state.")
     source_state.add_argument("--state-path", type=Path, default=Path("data/runs/source_state.json"))
 
@@ -150,6 +152,7 @@ def main(argv: list[str] | None = None) -> int:
         "fetch-sources",
         help="Fetch multiple built-in RSS/Atom sources.",
     )
+    fetch_sources.add_argument("--profile", help="Source profile name to fetch when --sources is omitted.")
     fetch_sources.add_argument("--sources", nargs="*", help="Source names; defaults to all.")
     fetch_sources.add_argument("--limit", type=int, default=3, help="Items per source.")
     fetch_sources.add_argument("--analyze", action="store_true")
@@ -212,6 +215,7 @@ def main(argv: list[str] | None = None) -> int:
         "scheduled-fetch",
         help="Run fetch-sources once or repeatedly with a local JSONL run log.",
     )
+    scheduled_fetch.add_argument("--profile", help="Source profile name to fetch when --sources is omitted.")
     scheduled_fetch.add_argument("--sources", nargs="*", help="Source names; defaults to all.")
     scheduled_fetch.add_argument("--limit", type=int, default=3, help="Items per source.")
     scheduled_fetch.add_argument("--analyze", action="store_true")
@@ -356,6 +360,16 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 0
 
+    if args.command == "list-source-profiles":
+        print(
+            json.dumps(
+                [profile.to_dict() for profile in list_source_profiles()],
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
+        return 0
+
     if args.command == "source-state":
         storage_settings = AgentSettings.from_env().storage
         store = create_source_state_store(storage_settings, path=args.state_path)
@@ -407,7 +421,13 @@ def main(argv: list[str] | None = None) -> int:
         "run-local",
         "run-url",
     } or (
-        args.command in {"fetch-source", "fetch-sources", "fetch-html-source", "fetch-html-sources"}
+        args.command in {
+            "fetch-source",
+            "fetch-sources",
+            "fetch-html-source",
+            "fetch-html-sources",
+            "scheduled-fetch",
+        }
         and args.analyze
     )
     provider = None
@@ -522,7 +542,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.command == "fetch-sources":
-        source_names = args.sources or [source.name for source in list_default_sources()]
+        source_names = _resolve_source_names(source_names=args.sources, profile_name=args.profile)
         sources = [get_default_source(name) for name in source_names]
         summary = _fetch_and_optionally_analyze_sources(
             sources=sources,
@@ -594,10 +614,12 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "scheduled-fetch":
         max_runs = None if args.max_runs == 0 else args.max_runs
         runner = RecurringRunner(LocalRunLog(args.run_log))
+        source_names = _resolve_source_names(source_names=args.sources, profile_name=args.profile)
+        selected_profile = "" if args.sources else (args.profile or "")
 
         def job():
             return run_fetch_sources_job(
-                source_names=args.sources,
+                source_names=source_names,
                 limit=args.limit,
                 analyze=args.analyze,
                 archive_dir=args.archive_dir,
@@ -610,6 +632,7 @@ def main(argv: list[str] | None = None) -> int:
                 state_path=args.state_path,
                 incremental=args.incremental,
                 update_state=not args.no_update_state,
+                profile_name=args.profile,
             )
 
         records = runner.run_forever(
@@ -619,7 +642,8 @@ def main(argv: list[str] | None = None) -> int:
             max_runs=max_runs,
             stop_on_error=args.stop_on_error,
             metadata={
-                "sources": args.sources or [source.name for source in list_default_sources()],
+                "sources": source_names,
+                "profile": selected_profile,
                 "limit": args.limit,
                 "analyze": args.analyze,
                 "fetch_details": args.fetch_details,
@@ -737,10 +761,11 @@ def run_fetch_sources_job(
     state_path: Path = Path("data/runs/source_state.json"),
     incremental: bool = False,
     update_state: bool = True,
+    profile_name: str | None = None,
 ) -> list[dict[str, object]]:
     settings = AgentSettings.from_env()
     provider = create_llm_provider(settings.llm) if analyze else None
-    names = source_names or [source.name for source in list_default_sources()]
+    names = _resolve_source_names(source_names=source_names, profile_name=profile_name)
     sources = [get_default_source(name) for name in names]
     return _fetch_and_optionally_analyze_sources(
         sources=sources,
@@ -758,6 +783,18 @@ def run_fetch_sources_job(
         incremental=incremental,
         update_state=update_state,
     )
+
+
+def _resolve_source_names(
+    *,
+    source_names: list[str] | None = None,
+    profile_name: str | None = None,
+) -> list[str]:
+    if source_names:
+        return [name for name in source_names if name]
+    if profile_name:
+        return get_source_profile(profile_name).source_names
+    return [source.name for source in list_default_sources()]
 
 
 if __name__ == "__main__":

@@ -106,11 +106,12 @@ List and fetch built-in RSS/Atom sources:
 ```bash
 PYTHONPATH=src python3 -m biopharma_agent.cli list-sources
 PYTHONPATH=src python3 -m biopharma_agent.cli list-sources --category industry_news
+PYTHONPATH=src python3 -m biopharma_agent.cli list-source-profiles
 PYTHONPATH=src python3 -m biopharma_agent.cli fetch-source fda_press_releases --limit 2
 
 # After configuring LLM environment variables, fetch and analyze directly.
 PYTHONPATH=src python3 -m biopharma_agent.cli fetch-sources \
-  --sources fda_press_releases biopharma_dive_news sec_biopharma_filings asx_biopharma_announcements \
+  --profile core_intelligence \
   --limit 1 \
   --fetch-details \
   --clean-html-details \
@@ -119,6 +120,8 @@ PYTHONPATH=src python3 -m biopharma_agent.cli fetch-sources \
 ```
 
 `fetch-sources` dispatches by source metadata to the correct collector: RSS/Atom, HTML listing, ASX announcements, or SEC submissions. ASX defaults to the `CSL/COH/RMD` watchlist. SEC defaults to Pfizer, Moderna, Amgen, Gilead, and Regeneron filings for `8-K/10-K/10-Q/S-1/424B*`. FDA press releases and MedWatch use official RSS feeds; `--fetch-details` deep-fetches detail pages and can clean main body text.
+
+Source profiles provide reusable bundles for common workflows. Current profiles include `core_intelligence`, `global_safety_alerts`, `market_filings`, and `industry_news`. Use `--profile` with `fetch-sources` or `scheduled-fetch`; explicit `--sources` override the profile when both are provided.
 
 Each collection command updates source state by default with the latest source status, selected document IDs, skipped duplicate count, consecutive failure count, failure diagnosis, and remediation hint. JSONL mode writes `data/runs/source_state.json`; PostgreSQL mode writes the same state to the `source_states` table. Use `--incremental` to skip documents whose IDs are already recorded for that source. Use `--state-path` for a different JSONL state file, `--no-update-state` for stateless test runs, and `source-state` to inspect health:
 
@@ -152,7 +155,7 @@ Lightweight scheduling can run once for cron-style jobs or loop locally:
 ```bash
 # Run once and write data/runs/fetch_runs.jsonl.
 PYTHONPATH=src python3 -m biopharma_agent.cli scheduled-fetch \
-  --sources fda_press_releases biopharma_dive_news \
+  --profile global_safety_alerts \
   --limit 2 \
   --max-runs 1 \
   --fetch-details \

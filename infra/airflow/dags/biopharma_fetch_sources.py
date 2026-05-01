@@ -25,6 +25,7 @@ DEFAULT_ARGS = {
 
 def run_fetch_sources() -> dict[str, object]:
     sources = os.getenv("BIOPHARMA_AIRFLOW_SOURCES", "").split()
+    profile = os.getenv("BIOPHARMA_AIRFLOW_PROFILE", "").strip()
     limit = os.getenv("BIOPHARMA_AIRFLOW_LIMIT", "3")
     run_log = os.getenv("BIOPHARMA_AIRFLOW_RUN_LOG", "data/runs/airflow_fetch_runs.jsonl")
     source_state = os.getenv("BIOPHARMA_AIRFLOW_SOURCE_STATE", "data/runs/airflow_source_state.json")
@@ -56,6 +57,8 @@ def run_fetch_sources() -> dict[str, object]:
     if sources:
         command.append("--sources")
         command.extend(sources)
+    elif profile:
+        command.extend(["--profile", profile])
     subprocess.run(command, check=True)
     return _airflow_summary(run_log=run_log, source_state=source_state)
 
