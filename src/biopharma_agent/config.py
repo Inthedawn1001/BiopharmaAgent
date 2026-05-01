@@ -69,6 +69,7 @@ class StorageSettings:
     backend: str
     analysis_jsonl_path: str
     feedback_jsonl_path: str
+    source_state_path: str
     postgres_dsn: str
 
     @classmethod
@@ -82,6 +83,10 @@ class StorageSettings:
             feedback_jsonl_path=os.getenv(
                 "BIOPHARMA_FEEDBACK_JSONL_PATH",
                 "data/feedback/reviews.jsonl",
+            ),
+            source_state_path=os.getenv(
+                "BIOPHARMA_SOURCE_STATE_PATH",
+                "data/runs/source_state.json",
             ),
             postgres_dsn=os.getenv("BIOPHARMA_POSTGRES_DSN", ""),
         )

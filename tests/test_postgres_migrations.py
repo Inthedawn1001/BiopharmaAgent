@@ -51,6 +51,17 @@ class PostgresMigrationRunnerTest(unittest.TestCase):
             with self.assertRaises(ValueError):
                 runner.migrate()
 
+    def test_migrate_all_applies_default_incremental_migrations(self):
+        runner = FakeMigrationRunner("postgresql://example")
+
+        results = runner.migrate_all()
+
+        self.assertGreaterEqual(len(results), 2)
+        self.assertEqual(results[0].migration_id, "0001_initial_schema")
+        self.assertIn("0002_source_states", {result.migration_id for result in results})
+        executed_sql = "\n".join(call[0] for call in runner.cursor.calls)
+        self.assertIn("create table if not exists source_states", executed_sql)
+
 
 class FakeMigrationRunner(PostgresMigrationRunner):
     def __init__(self, *args, existing_checksum=None, **kwargs):
@@ -85,7 +96,9 @@ class FakeMigrationCursor:
         self.calls = []
         self.result = None
         self.recorded_checksum = None
-        self.existing_checksum = existing_checksum
+        self.existing_checksums = (
+            existing_checksum if isinstance(existing_checksum, dict) else {"0001_initial_schema": existing_checksum}
+        )
 
     def __enter__(self):
         return self
@@ -97,10 +110,12 @@ class FakeMigrationCursor:
         normalized = " ".join(sql.split())
         self.calls.append((normalized, list(params or [])))
         if normalized.startswith("select checksum from schema_migrations"):
-            self.result = (self.existing_checksum,) if self.existing_checksum else None
+            checksum = self.existing_checksums.get(params[0])
+            self.result = (checksum,) if checksum else None
             return
         if normalized.startswith("insert into schema_migrations"):
             self.recorded_checksum = params[1]
+            self.existing_checksums[params[0]] = params[1]
         self.result = None
 
     def fetchone(self):

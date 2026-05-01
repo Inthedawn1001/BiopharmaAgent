@@ -17,7 +17,7 @@ from biopharma_agent.collection.runner import CollectionOptions, collect_sources
 from biopharma_agent.config import AgentSettings
 from biopharma_agent.demo import seed_demo_data
 from biopharma_agent.orchestration.scheduler import LocalRunLog, RecurringRunner
-from biopharma_agent.orchestration.source_state import state_summary
+from biopharma_agent.orchestration.source_state import source_state_summary
 from biopharma_agent.orchestration.workflow import LocalDocumentWorkflow
 from biopharma_agent.sources import get_default_source, list_default_sources
 from biopharma_agent.storage.graph import LocalKnowledgeGraphWriter
@@ -30,7 +30,11 @@ from biopharma_agent.ops.diagnostics import diagnose_environment
 from biopharma_agent.ops.llm_observer import ObservedLLMProvider
 from biopharma_agent.ops.logging import configure_logging
 from biopharma_agent.ops.metrics import InMemoryMetrics
-from biopharma_agent.storage.factory import create_analysis_repository, create_raw_archive
+from biopharma_agent.storage.factory import (
+    create_analysis_repository,
+    create_raw_archive,
+    create_source_state_store,
+)
 from biopharma_agent.storage.migrations import PostgresMigrationRunner
 from biopharma_agent.web.server import run_server
 
@@ -284,8 +288,18 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "migrate-postgres":
         dsn = args.dsn or AgentSettings.from_env().storage.postgres_dsn
-        result = PostgresMigrationRunner(dsn, schema_path=args.schema).migrate()
-        print(json.dumps(result.to_dict(), ensure_ascii=False, indent=2))
+        results = PostgresMigrationRunner(dsn, schema_path=args.schema).migrate_all()
+        print(
+            json.dumps(
+                {
+                    "migrations": [result.to_dict() for result in results],
+                    "applied": sum(1 for result in results if result.status == "applied"),
+                    "skipped": sum(1 for result in results if result.status == "skipped"),
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
         return 0
 
     if args.command == "analyze-deterministic":
@@ -331,9 +345,12 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.command == "source-state":
+        storage_settings = AgentSettings.from_env().storage
+        store = create_source_state_store(storage_settings, path=args.state_path)
+        state_path = str(args.state_path) if storage_settings.backend == "jsonl" else "postgres"
         print(
             json.dumps(
-                state_summary(args.state_path, sources=list_default_sources()),
+                source_state_summary(store, sources=list_default_sources(), path=state_path),
                 ensure_ascii=False,
                 indent=2,
             )

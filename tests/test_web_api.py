@@ -200,6 +200,32 @@ class WebApiTest(unittest.TestCase):
             self.assertIn("fda_press_releases", names)
             self.assertEqual(names["fda_press_releases"]["last_status"], "never_run")
 
+    def test_list_source_state_uses_postgres_backend(self):
+        with patch.dict(
+            "os.environ",
+            {
+                "BIOPHARMA_STORAGE_BACKEND": "postgres",
+                "BIOPHARMA_POSTGRES_DSN": "postgresql://example",
+            },
+        ), patch("biopharma_agent.web.api.create_source_state_store") as factory:
+            factory.return_value.list_records.return_value = [
+                {
+                    "source": "fda_press_releases",
+                    "kind": "regulatory_feed",
+                    "collector": "feed",
+                    "category": "regulatory_press_release",
+                    "enabled": True,
+                    "last_status": "success",
+                    "seen_count": 2,
+                }
+            ]
+
+            data = api.list_source_state("/private/tmp/outside.json")
+
+            self.assertEqual(data["path"], "postgres")
+            self.assertEqual(data["summary"]["success"], 1)
+            factory.assert_called_once()
+
     def test_diagnostics_endpoint_shape(self):
         data = api.diagnostics()
 

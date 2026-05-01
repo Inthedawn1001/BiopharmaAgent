@@ -15,9 +15,13 @@ from biopharma_agent.collection.sec import SECSubmissionsFetcher
 from biopharma_agent.config import AgentSettings
 from biopharma_agent.contracts import RawDocument, SourceRef, utc_now
 from biopharma_agent.llm.base import LLMProvider
-from biopharma_agent.orchestration.source_state import LocalSourceStateStore
+from biopharma_agent.orchestration.source_state import SourceStateStore
 from biopharma_agent.orchestration.workflow import LocalDocumentWorkflow
-from biopharma_agent.storage.factory import create_analysis_repository, create_raw_archive
+from biopharma_agent.storage.factory import (
+    create_analysis_repository,
+    create_raw_archive,
+    create_source_state_store,
+)
 from biopharma_agent.storage.graph import LocalKnowledgeGraphWriter
 
 
@@ -44,7 +48,7 @@ def collect_sources(
     provider: LLMProvider | None = None,
 ) -> list[dict[str, Any]]:
     workflow = _workflow(options, provider)
-    state_store = LocalSourceStateStore(options.state_path) if options.update_state else None
+    state_store = _source_state_store(options)
     summaries: list[dict[str, Any]] = []
     for source in sources:
         summaries.append(
@@ -63,11 +67,11 @@ def collect_source(
     source: SourceRef,
     options: CollectionOptions,
     workflow: LocalDocumentWorkflow | None = None,
-    state_store: LocalSourceStateStore | None = None,
+    state_store: SourceStateStore | None = None,
 ) -> dict[str, Any]:
     started_at = utc_now()
     if state_store is None and options.update_state:
-        state_store = LocalSourceStateStore(options.state_path)
+        state_store = _source_state_store(options)
     if not source.metadata.get("enabled", True):
         raise ValueError(
             f"Source {source.name} is disabled: {source.metadata.get('disabled_reason', 'no reason provided')}"
@@ -312,7 +316,7 @@ def _filter_seen_documents(
     source: SourceRef,
     documents: list[RawDocument],
     options: CollectionOptions,
-    state_store: LocalSourceStateStore | None,
+    state_store: SourceStateStore | None,
 ) -> tuple[list[RawDocument], int]:
     if not options.incremental or not state_store:
         return documents, 0
@@ -328,3 +332,10 @@ def _compact_state(record: dict[str, Any]) -> dict[str, Any]:
         "seen_count": record.get("seen_count", 0),
         "consecutive_failures": record.get("consecutive_failures", 0),
     }
+
+
+def _source_state_store(options: CollectionOptions) -> SourceStateStore | None:
+    if not options.update_state:
+        return None
+    settings = AgentSettings.from_env()
+    return create_source_state_store(settings.storage, path=options.state_path)

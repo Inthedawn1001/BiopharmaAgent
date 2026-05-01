@@ -8,8 +8,10 @@ from biopharma_agent.config import StorageSettings
 from biopharma_agent.contracts import ParsedDocument, PipelineResult, RawDocument, SourceRef
 from biopharma_agent.ops.factory import create_feedback_repository
 from biopharma_agent.ops.feedback import FeedbackRecord, LocalFeedbackRepository
+from biopharma_agent.orchestration.source_state import LocalSourceStateStore
+from biopharma_agent.orchestration.postgres_source_state import PostgresSourceStateStore
 from biopharma_agent.storage.postgres import PostgresAnalysisRepository
-from biopharma_agent.storage.factory import create_analysis_repository
+from biopharma_agent.storage.factory import create_analysis_repository, create_source_state_store
 from biopharma_agent.storage.local import IdempotentLocalAnalysisRepository, LocalAnalysisRepository
 from biopharma_agent.storage.repository import DocumentFilters
 
@@ -92,6 +94,7 @@ class StorageRepositoryTest(unittest.TestCase):
             backend="jsonl",
             analysis_jsonl_path="unused.jsonl",
             feedback_jsonl_path="feedback.jsonl",
+            source_state_path="source_state.json",
             postgres_dsn="",
         )
 
@@ -122,12 +125,39 @@ class StorageRepositoryTest(unittest.TestCase):
             backend="jsonl",
             analysis_jsonl_path="unused.jsonl",
             feedback_jsonl_path="feedback.jsonl",
+            source_state_path="source_state.json",
             postgres_dsn="",
         )
 
         repository = create_feedback_repository(settings, path="custom-feedback.jsonl")
 
         self.assertIsInstance(repository, LocalFeedbackRepository)
+
+    def test_factory_selects_source_state_jsonl_repository(self):
+        settings = StorageSettings(
+            backend="jsonl",
+            analysis_jsonl_path="unused.jsonl",
+            feedback_jsonl_path="feedback.jsonl",
+            source_state_path="source_state.json",
+            postgres_dsn="",
+        )
+
+        store = create_source_state_store(settings)
+
+        self.assertIsInstance(store, LocalSourceStateStore)
+
+    def test_factory_selects_source_state_postgres_repository(self):
+        settings = StorageSettings(
+            backend="postgres",
+            analysis_jsonl_path="unused.jsonl",
+            feedback_jsonl_path="feedback.jsonl",
+            source_state_path="source_state.json",
+            postgres_dsn="postgresql://example",
+        )
+
+        store = create_source_state_store(settings)
+
+        self.assertIsInstance(store, PostgresSourceStateStore)
 
     def test_postgres_list_documents_uses_sql_filters_and_pagination(self):
         repository = FakePostgresAnalysisRepository()

@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from biopharma_agent.config import RawArchiveSettings, StorageSettings
+from biopharma_agent.orchestration.source_state import LocalSourceStateStore, SourceStateStore
 from biopharma_agent.storage.local import IdempotentLocalAnalysisRepository, LocalAnalysisRepository
 from biopharma_agent.storage.postgres import PostgresAnalysisRepository
 from biopharma_agent.storage.raw_archive import LocalRawArchive, RawArchive
@@ -50,3 +51,20 @@ def create_raw_archive(
 
         return S3RawArchive(settings)
     raise ValueError(f"Unsupported raw archive backend: {settings.backend}")
+
+
+def create_source_state_store(
+    settings: StorageSettings,
+    *,
+    path: Path | str | None = None,
+) -> SourceStateStore:
+    """Create the configured source state store."""
+
+    backend = settings.backend.lower()
+    if backend == "jsonl":
+        return LocalSourceStateStore(path or settings.source_state_path)
+    if backend == "postgres":
+        from biopharma_agent.orchestration.postgres_source_state import PostgresSourceStateStore
+
+        return PostgresSourceStateStore(settings.postgres_dsn)
+    raise ValueError(f"Unsupported storage backend: {settings.backend}")

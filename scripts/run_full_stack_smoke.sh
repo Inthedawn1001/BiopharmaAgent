@@ -97,6 +97,22 @@ analyzed = sum(int(item.get("analyzed") or 0) for item in result if isinstance(i
 if selected < 1 or analyzed < 1:
     raise SystemExit(f"Expected selected and analyzed documents, got selected={selected}, analyzed={analyzed}")
 
+with repo._connect() as connection:
+    with connection.cursor() as cursor:
+        cursor.execute(
+            """
+            select last_status, last_selected, last_analyzed, cardinality(seen_document_ids)
+            from source_states
+            where source_name = %s
+            """,
+            ("fda_press_releases",),
+        )
+        state_row = cursor.fetchone()
+if not state_row:
+    raise SystemExit("Expected source_states row for fda_press_releases")
+if state_row[0] != "success" or int(state_row[1] or 0) < 1 or int(state_row[2] or 0) < 1:
+    raise SystemExit(f"Unexpected FDA source state row: {state_row}")
+
 print(
     {
         "postgres_fda_documents": docs.count,
@@ -105,6 +121,7 @@ print(
         "run_status": latest.get("status"),
         "selected": selected,
         "analyzed": analyzed,
+        "source_state_seen": int(state_row[3] or 0),
     }
 )
 PY

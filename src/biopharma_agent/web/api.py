@@ -20,10 +20,10 @@ from biopharma_agent.llm.factory import create_llm_provider
 from biopharma_agent.ops.diagnostics import diagnose_environment
 from biopharma_agent.ops.factory import create_feedback_repository
 from biopharma_agent.ops.feedback import FeedbackRecord, LocalFeedbackRepository
-from biopharma_agent.orchestration.source_state import state_summary
+from biopharma_agent.orchestration.source_state import source_state_summary
 from biopharma_agent.orchestration.scheduler import JobRunRecord, LocalRunLog
 from biopharma_agent.sources import get_default_source, list_default_sources
-from biopharma_agent.storage.factory import create_analysis_repository
+from biopharma_agent.storage.factory import create_analysis_repository, create_source_state_store
 from biopharma_agent.storage.local import LocalAnalysisRepository
 from biopharma_agent.storage.repository import DocumentFilters
 
@@ -70,7 +70,10 @@ def list_sources(kind: str = "", category: str = "") -> dict[str, Any]:
 
 
 def list_source_state(path: str | Path = "data/runs/source_state.json") -> dict[str, Any]:
-    return state_summary(_safe_workspace_path(path), sources=list_default_sources())
+    settings = AgentSettings.from_env().storage
+    state_path = _safe_workspace_path(path) if settings.backend == "jsonl" else Path("postgres")
+    store = create_source_state_store(settings, path=state_path)
+    return source_state_summary(store, sources=list_default_sources(), path=str(state_path))
 
 
 def analyze_deterministic(payload: dict[str, Any]) -> dict[str, Any]:
@@ -203,6 +206,12 @@ def trigger_fetch_job(payload: dict[str, Any]) -> dict[str, Any]:
         else ["fda_press_releases"]
     )
     run_log_path = _safe_workspace_path(str(payload.get("run_log") or "data/runs/fetch_runs.jsonl"))
+    storage_settings = AgentSettings.from_env().storage
+    state_path = (
+        _safe_workspace_path(str(payload.get("state_path") or "data/runs/source_state.json"))
+        if storage_settings.backend == "jsonl"
+        else Path("postgres")
+    )
     options = CollectionOptions(
         limit=max(1, min(int(payload.get("limit", 1)), 25)),
         analyze=_bool_value(payload.get("analyze", True)),
@@ -213,7 +222,7 @@ def trigger_fetch_job(payload: dict[str, Any]) -> dict[str, Any]:
         graph_dir=_safe_workspace_path(str(payload.get("graph_dir") or "data/graph")),
         no_graph=_bool_value(payload.get("no_graph", False)),
         detail_delay_seconds=float(payload.get("detail_delay_seconds", 0.0)),
-        state_path=_safe_workspace_path(str(payload.get("state_path") or "data/runs/source_state.json")),
+        state_path=state_path,
         incremental=_bool_value(payload.get("incremental", False)),
         update_state=_bool_value(payload.get("update_state", True)),
     )

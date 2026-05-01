@@ -11,6 +11,7 @@ from typing import Any
 
 DEFAULT_SCHEMA_PATH = Path("infra/postgres/schema.sql")
 DEFAULT_MIGRATION_ID = "0001_initial_schema"
+DEFAULT_MIGRATIONS_DIR = Path("infra/postgres/migrations")
 
 
 @dataclass(frozen=True)
@@ -43,48 +44,76 @@ class PostgresMigrationRunner:
         self.connect_timeout = connect_timeout
 
     def migrate(self) -> MigrationResult:
-        schema_sql = self.schema_path.read_text(encoding="utf-8")
-        checksum = hashlib.sha256(schema_sql.encode("utf-8")).hexdigest()
+        results = self.migrate_all()
+        return results[0]
 
+    def migrate_all(self) -> list[MigrationResult]:
+        migrations = [
+            (
+                self.migration_id,
+                self.schema_path,
+                self.schema_path.read_text(encoding="utf-8"),
+            )
+        ]
+        if self.schema_path == DEFAULT_SCHEMA_PATH and DEFAULT_MIGRATIONS_DIR.exists():
+            for path in sorted(DEFAULT_MIGRATIONS_DIR.glob("*.sql")):
+                migrations.append((path.stem, path, path.read_text(encoding="utf-8")))
         with self._connect() as connection:
             with connection.cursor() as cursor:
                 cursor.execute(_MIGRATION_TABLE_SQL)
-                cursor.execute(
-                    "select checksum from schema_migrations where migration_id = %s",
-                    (self.migration_id,),
-                )
-                row = cursor.fetchone()
-                if row:
-                    existing_checksum = row[0]
-                    if existing_checksum != checksum:
-                        raise ValueError(
-                            "PostgreSQL migration checksum mismatch for "
-                            f"{self.migration_id}: expected {existing_checksum}, got {checksum}"
-                        )
-                    connection.commit()
-                    return MigrationResult(
-                        migration_id=self.migration_id,
-                        status="skipped",
-                        checksum=checksum,
-                        schema_path=str(self.schema_path),
+                results: list[MigrationResult] = []
+                for migration_id, path, sql in migrations:
+                    checksum = hashlib.sha256(sql.encode("utf-8")).hexdigest()
+                    cursor.execute(
+                        "select checksum from schema_migrations where migration_id = %s",
+                        (migration_id,),
                     )
+                    row = cursor.fetchone()
+                    if row:
+                        existing_checksum = row[0]
+                        if existing_checksum != checksum:
+                            if migration_id == self.migration_id:
+                                legacy_sql = _legacy_safe_initial_schema(sql)
+                                legacy_checksum = hashlib.sha256(legacy_sql.encode("utf-8")).hexdigest()
+                                if legacy_checksum != existing_checksum:
+                                    raise ValueError(
+                                        "PostgreSQL migration checksum mismatch for "
+                                        f"{migration_id}: expected {existing_checksum}, got {checksum}"
+                                    )
+                                checksum = existing_checksum
+                            else:
+                                raise ValueError(
+                                    "PostgreSQL migration checksum mismatch for "
+                                    f"{migration_id}: expected {existing_checksum}, got {checksum}"
+                                )
+                        results.append(
+                            MigrationResult(
+                                migration_id=migration_id,
+                                status="skipped",
+                                checksum=checksum,
+                                schema_path=str(path),
+                            )
+                        )
+                        continue
 
-                cursor.execute(schema_sql)
-                cursor.execute(
-                    """
-                    insert into schema_migrations (migration_id, checksum)
-                    values (%s, %s)
-                    """,
-                    (self.migration_id, checksum),
-                )
+                    cursor.execute(sql)
+                    cursor.execute(
+                        """
+                        insert into schema_migrations (migration_id, checksum)
+                        values (%s, %s)
+                        """,
+                        (migration_id, checksum),
+                    )
+                    results.append(
+                        MigrationResult(
+                            migration_id=migration_id,
+                            status="applied",
+                            checksum=checksum,
+                            schema_path=str(path),
+                        )
+                    )
             connection.commit()
-
-        return MigrationResult(
-            migration_id=self.migration_id,
-            status="applied",
-            checksum=checksum,
-            schema_path=str(self.schema_path),
-        )
+        return results
 
     def _connect(self) -> Any:
         psycopg = importlib.import_module("psycopg")
@@ -98,3 +127,10 @@ create table if not exists schema_migrations (
     applied_at timestamptz not null default now()
 )
 """
+
+
+def _legacy_safe_initial_schema(sql: str) -> str:
+    marker = "create table if not exists source_states"
+    if marker not in sql:
+        return sql
+    return sql.split(marker, 1)[0].rstrip() + "\n"

@@ -81,9 +81,10 @@ variant used by recurring collection commands. PostgreSQL can be enabled with
 PostgreSQL tables separate source metadata, normalized documents, insight
 payloads, entities, events, relations, risk signals, and feedback. The full
 schema lives in `infra/postgres/schema.sql`. The `migrate-postgres` CLI command
-applies that schema idempotently and records its checksum in `schema_migrations`,
-so local Docker, smoke tests, Airflow wrappers, and later CI jobs can prepare
-the database through the same entry point.
+applies that schema idempotently, applies incremental files from
+`infra/postgres/migrations`, and records checksums in `schema_migrations`, so
+local Docker, smoke tests, Airflow wrappers, and later CI jobs can prepare the
+database through the same entry point.
 
 Document listing uses a shared filter contract. JSONL evaluates that contract
 in process; PostgreSQL pushes source, event type, risk, keyword search, sorting,
@@ -111,10 +112,11 @@ with status, timing, result, error, and metadata. This gives cron, local
 development, and Airflow the same execution path: run the CLI once, or loop it
 with an interval.
 
-Collection also maintains local source state in `data/runs/source_state.json`
-unless disabled by the caller. The state file records the latest source health,
-consecutive failures, selected document IDs, and seen document IDs. CLI and web
-jobs can enable incremental mode so already-seen document IDs are skipped before
+Collection also maintains source state unless disabled by the caller. JSONL mode
+uses `data/runs/source_state.json`; PostgreSQL mode stores the same contract in
+the `source_states` table. The state records latest source health, consecutive
+failures, selected document IDs, and seen document IDs. CLI and web jobs can
+enable incremental mode so already-seen document IDs are skipped before
 analysis, while failures still update source health for diagnosis.
 
 The Airflow DAG in `infra/airflow/dags` intentionally shells out to

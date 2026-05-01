@@ -116,7 +116,7 @@ PYTHONPATH=src python3 -m biopharma_agent.cli fetch-sources \
 
 `fetch-sources` dispatches by source metadata to the correct collector: RSS/Atom, HTML listing, ASX announcements, or SEC submissions. ASX defaults to the `CSL/COH/RMD` watchlist. SEC defaults to Pfizer, Moderna, Amgen, Gilead, and Regeneron filings for `8-K/10-K/10-Q/S-1/424B*`. FDA press releases and MedWatch use official RSS feeds; `--fetch-details` deep-fetches detail pages and can clean main body text.
 
-Each collection command updates `data/runs/source_state.json` by default with the latest source status, selected document IDs, skipped duplicate count, and consecutive failure count. Use `--incremental` to skip documents whose IDs are already recorded for that source. Use `--state-path` for a different state file, `--no-update-state` for stateless test runs, and `source-state` to inspect health:
+Each collection command updates source state by default with the latest source status, selected document IDs, skipped duplicate count, and consecutive failure count. JSONL mode writes `data/runs/source_state.json`; PostgreSQL mode writes the same state to the `source_states` table. Use `--incremental` to skip documents whose IDs are already recorded for that source. Use `--state-path` for a different JSONL state file, `--no-update-state` for stateless test runs, and `source-state` to inspect health:
 
 ```bash
 PYTHONPATH=src python3 -m biopharma_agent.cli source-state
@@ -171,7 +171,7 @@ PYTHONPATH=src python3 -m biopharma_agent.cli migrate-postgres
 scripts/run_postgres_integration.sh
 ```
 
-`migrate-postgres` idempotently applies `infra/postgres/schema.sql` and writes the schema checksum to `schema_migrations`. If Docker Compose is not used, manually create a database and run the same migration command.
+`migrate-postgres` idempotently applies `infra/postgres/schema.sql`, then applies incremental SQL files in `infra/postgres/migrations`, and writes checksums to `schema_migrations`. If Docker Compose is not used, manually create a database and run the same migration command.
 
 MinIO/S3 raw-document archiving is optional:
 

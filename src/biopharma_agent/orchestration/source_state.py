@@ -6,7 +6,7 @@ import json
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 
 from biopharma_agent.contracts import RawDocument, SourceRef, utc_now
 
@@ -22,6 +22,39 @@ class SourceRunUpdate:
     summary: dict[str, Any] | None = None
     documents: list[RawDocument] | None = None
     error: str = ""
+
+
+class SourceStateStore(Protocol):
+    def list_records(self) -> list[dict[str, Any]]:
+        """List persisted source state records."""
+
+    def get_record(self, source_name: str) -> dict[str, Any] | None:
+        """Return one source state record by source name."""
+
+    def seen_document_ids(self, source_name: str) -> set[str]:
+        """Return seen document IDs for one source."""
+
+    def record_success(
+        self,
+        source: SourceRef,
+        *,
+        started_at: datetime,
+        completed_at: datetime,
+        summary: dict[str, Any],
+        documents: list[RawDocument],
+    ) -> dict[str, Any]:
+        """Record a successful source run."""
+
+    def record_failure(
+        self,
+        source: SourceRef,
+        *,
+        started_at: datetime,
+        completed_at: datetime,
+        error: str,
+        summary: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Record a failed source run."""
 
 
 class LocalSourceStateStore:
@@ -160,35 +193,55 @@ def state_summary(path: Path | str, sources: list[SourceRef] | None = None) -> d
     records_by_name = {record["source"]: record for record in store.list_records()}
     if sources is not None:
         for source in sources:
-            records_by_name.setdefault(
-                source.name,
-                {
-                    "source": source.name,
-                    "kind": source.kind,
-                    "collector": source.metadata.get("collector", "feed"),
-                    "category": source.metadata.get("category", ""),
-                    "enabled": source.metadata.get("enabled", True),
-                    "last_status": "never_run",
-                    "last_started_at": "",
-                    "last_completed_at": "",
-                    "last_error": "",
-                    "last_fetched": 0,
-                    "last_selected": 0,
-                    "last_analyzed": 0,
-                    "last_skipped_seen": 0,
-                    "last_document_ids": [],
-                    "seen_document_ids": [],
-                    "seen_count": 0,
-                    "consecutive_failures": 0,
-                    "updated_at": "",
-                },
-            )
+            records_by_name.setdefault(source.name, empty_source_state(source))
     items = [records_by_name[name] for name in sorted(records_by_name)]
     return {
         "path": str(Path(path)),
         "items": items,
         "count": len(items),
         "summary": _summary(items),
+    }
+
+
+def source_state_summary(
+    store: SourceStateStore,
+    *,
+    sources: list[SourceRef] | None = None,
+    path: str = "",
+) -> dict[str, Any]:
+    records_by_name = {record["source"]: record for record in store.list_records()}
+    if sources is not None:
+        for source in sources:
+            records_by_name.setdefault(source.name, empty_source_state(source))
+    items = [records_by_name[name] for name in sorted(records_by_name)]
+    return {
+        "path": path,
+        "items": items,
+        "count": len(items),
+        "summary": _summary(items),
+    }
+
+
+def empty_source_state(source: SourceRef) -> dict[str, Any]:
+    return {
+        "source": source.name,
+        "kind": source.kind,
+        "collector": source.metadata.get("collector", "feed"),
+        "category": source.metadata.get("category", ""),
+        "enabled": source.metadata.get("enabled", True),
+        "last_status": "never_run",
+        "last_started_at": "",
+        "last_completed_at": "",
+        "last_error": "",
+        "last_fetched": 0,
+        "last_selected": 0,
+        "last_analyzed": 0,
+        "last_skipped_seen": 0,
+        "last_document_ids": [],
+        "seen_document_ids": [],
+        "seen_count": 0,
+        "consecutive_failures": 0,
+        "updated_at": "",
     }
 
 
