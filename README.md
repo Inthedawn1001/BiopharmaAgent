@@ -19,6 +19,7 @@ The current version includes the LLM abstraction layer, feed and source collecti
 - Lightweight scheduled fetch command with JSONL run logs
 - Graph-shaped node and edge JSONL export for later Neo4j import
 - Local web workbench for document analysis, document inbox, run monitoring, manual fetch triggers, human review, time-series analysis, model settings, and runtime diagnostics
+- Source health diagnosis with prioritized operational alerts for failed or disabled collectors
 - CLI commands for model checks, analysis, execution plans, migrations, and diagnostics
 - Dependency-light unit tests
 - GitHub Actions CI for unit-test regression checks
@@ -116,7 +117,7 @@ PYTHONPATH=src python3 -m biopharma_agent.cli fetch-sources \
 
 `fetch-sources` dispatches by source metadata to the correct collector: RSS/Atom, HTML listing, ASX announcements, or SEC submissions. ASX defaults to the `CSL/COH/RMD` watchlist. SEC defaults to Pfizer, Moderna, Amgen, Gilead, and Regeneron filings for `8-K/10-K/10-Q/S-1/424B*`. FDA press releases and MedWatch use official RSS feeds; `--fetch-details` deep-fetches detail pages and can clean main body text.
 
-Each collection command updates source state by default with the latest source status, selected document IDs, skipped duplicate count, and consecutive failure count. JSONL mode writes `data/runs/source_state.json`; PostgreSQL mode writes the same state to the `source_states` table. Use `--incremental` to skip documents whose IDs are already recorded for that source. Use `--state-path` for a different JSONL state file, `--no-update-state` for stateless test runs, and `source-state` to inspect health:
+Each collection command updates source state by default with the latest source status, selected document IDs, skipped duplicate count, consecutive failure count, failure diagnosis, and remediation hint. JSONL mode writes `data/runs/source_state.json`; PostgreSQL mode writes the same state to the `source_states` table. Use `--incremental` to skip documents whose IDs are already recorded for that source. Use `--state-path` for a different JSONL state file, `--no-update-state` for stateless test runs, and `source-state` to inspect health:
 
 ```bash
 PYTHONPATH=src python3 -m biopharma_agent.cli source-state
@@ -212,7 +213,7 @@ Start the local web workbench:
 PYTHONPATH=src python3 -m biopharma_agent.cli serve --host 127.0.0.1 --port 8765
 ```
 
-Then visit `http://127.0.0.1:8765`. The workbench includes document analysis, document inbox, run monitoring, manual fetch triggers, LLM extraction, task routing, human feedback, feedback browsing, time-series analysis, model settings, and runtime diagnostics. The inbox supports filtering by source, event type, risk, and keyword, plus pagination and sorting. The run monitor can trigger selected sources, enable incremental collection, and show source health from the source state file. It uses the configured LLM for real analysis by default. If the API key is missing, the job fails and writes a run log for troubleshooting. Runtime diagnostics check LLM, storage, raw archive, sources, Docker, and GitHub sync state. The diagnostics API reports whether credentials are present but never returns secret values.
+Then visit `http://127.0.0.1:8765`. The workbench includes document analysis, document inbox, run monitoring, manual fetch triggers, LLM extraction, task routing, human feedback, feedback browsing, time-series analysis, model settings, and runtime diagnostics. The inbox supports filtering by source, event type, risk, and keyword, plus pagination and sorting. The run monitor can trigger selected sources, enable incremental collection, and show source health, failure diagnosis, and prioritized source alerts from the source state file. It uses the configured LLM for real analysis by default. If the API key is missing, the job fails and writes a run log for troubleshooting. Runtime diagnostics check LLM, storage, raw archive, sources, Docker, and GitHub sync state. The diagnostics API reports whether credentials are present but never returns secret values.
 
 ## Architecture Entry Points
 
@@ -234,7 +235,7 @@ Then visit `http://127.0.0.1:8765`. The workbench includes document analysis, do
 
 Latest local verification on May 1, 2026:
 
-- Unit tests: `PYTHONPATH=src python -m unittest discover -s tests` -> 85 passed, 1 skipped
+- Unit tests: `PYTHONPATH=src python -m unittest discover -s tests` -> 102 passed, 1 skipped
 - Storage smoke: `scripts/run_storage_smoke.sh` -> PostgreSQL and MinIO checks passed without external news-source dependency
 - Full-stack smoke: `scripts/run_full_stack_smoke.sh` -> PostgreSQL migration checked, MinIO raw object verified, FDA real collection selected 1 document and analyzed 1 document
 - Airflow smoke: `scripts/run_airflow_smoke.sh` -> DAG loaded, latest run log entry succeeded with 1 selected document, and source state was written

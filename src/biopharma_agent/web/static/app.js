@@ -232,6 +232,7 @@ function renderSourceState(data) {
   $("#source-state-health").textContent = `${Math.round(Number(summary.health_ratio || 0) * 100)}%`;
   $("#source-state-selected").textContent = String(summary.last_selected ?? 0);
   $("#source-state-skipped").textContent = String(summary.last_skipped_seen ?? 0);
+  renderSourceAlerts(data.alerts || []);
   updateSourceStateCollectorFilter(rows);
 
   const body = $("#source-state-table-body");
@@ -262,6 +263,41 @@ function renderSourceState(data) {
       $("#source-state-detail").textContent = JSON.stringify(row, null, 2);
     });
     body.appendChild(tr);
+  }
+}
+
+function renderSourceAlerts(alerts) {
+  const container = $("#source-state-alerts");
+  if (!container) {
+    return;
+  }
+  container.innerHTML = "";
+  if (!alerts.length) {
+    const item = document.createElement("article");
+    item.className = "source-alert source-alert-ok";
+    const title = document.createElement("strong");
+    title.textContent = "No active source alerts";
+    const message = document.createElement("span");
+    message.textContent = "Collection health is clear for the current state file.";
+    item.append(title, message);
+    container.appendChild(item);
+    return;
+  }
+
+  for (const alert of alerts.slice(0, 4)) {
+    const item = document.createElement("article");
+    item.className = `source-alert source-alert-${alert.level || "info"}`;
+    const badge = document.createElement("span");
+    badge.className = `badge alert-${alert.level || "info"}`;
+    badge.textContent = alert.level || "info";
+    const body = document.createElement("div");
+    const title = document.createElement("strong");
+    title.textContent = `${alert.title || "Source alert"} · ${alert.source || "-"}`;
+    const message = document.createElement("span");
+    message.textContent = alert.action || alert.message || "-";
+    body.append(title, message);
+    item.append(badge, body);
+    container.appendChild(item);
   }
 }
 

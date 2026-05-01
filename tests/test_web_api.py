@@ -17,6 +17,7 @@ class WebApiTest(unittest.TestCase):
 
         self.assertIn("Biopharma Agent Workbench", body)
         self.assertIn("source-state-status-filter", body)
+        self.assertIn("source-state-alerts", body)
         self.assertIn("source-state-detail", body)
 
     def test_deterministic_analysis(self):
@@ -207,6 +208,9 @@ class WebApiTest(unittest.TestCase):
             self.assertIn("generated_at", data)
             self.assertIn("health_ratio", data["summary"])
             self.assertIn("failure_types", data["summary"])
+            self.assertIn("alert_counts", data["summary"])
+            self.assertGreaterEqual(data["summary"]["alert_counts"]["info"], 1)
+            self.assertIn("disabled_source", {alert["category"] for alert in data["alerts"]})
 
     def test_list_source_state_uses_postgres_backend(self):
         with patch.dict(

@@ -8,6 +8,7 @@ from biopharma_agent.orchestration.source_state import (
     LocalSourceStateStore,
     classify_source_error,
     state_summary,
+    source_state_alerts,
 )
 
 
@@ -82,6 +83,8 @@ class SourceStateTest(unittest.TestCase):
             self.assertEqual(data["backend"], "jsonl")
             self.assertEqual(data["summary"]["health_ratio"], 0.0)
             self.assertEqual(data["summary"]["failure_types"], {})
+            self.assertEqual(data["summary"]["alert_counts"], {"critical": 0, "warning": 0, "info": 0, "total": 0})
+            self.assertEqual(data["alerts"], [])
 
     def test_classifies_common_failure_modes(self):
         cases = [
@@ -106,6 +109,61 @@ class SourceStateTest(unittest.TestCase):
 
         self.assertEqual(diagnosis["failure_type"], "disabled")
         self.assertEqual(diagnosis["failure_severity"], "info")
+
+    def test_source_state_alerts_prioritize_failures(self):
+        alerts = source_state_alerts(
+            [
+                {
+                    "source": "sec_biopharma_filings",
+                    "enabled": True,
+                    "last_status": "failed",
+                    "failure_type": "rate_limit",
+                    "failure_severity": "warning",
+                    "remediation_hint": "Retry later.",
+                    "consecutive_failures": 1,
+                },
+                {
+                    "source": "fda_press_releases",
+                    "enabled": True,
+                    "last_status": "failed",
+                    "failure_type": "storage",
+                    "failure_severity": "error",
+                    "remediation_hint": "Check Postgres.",
+                    "consecutive_failures": 1,
+                },
+                {
+                    "source": "news_medical_life_sciences",
+                    "enabled": False,
+                    "last_status": "never_run",
+                    "failure_type": "disabled",
+                    "failure_severity": "info",
+                    "remediation_hint": "Enable after review.",
+                    "consecutive_failures": 0,
+                },
+            ]
+        )
+
+        self.assertEqual([alert["level"] for alert in alerts], ["critical", "warning", "info"])
+        self.assertEqual(alerts[0]["source"], "fda_press_releases")
+        self.assertEqual(alerts[0]["category"], "storage")
+        self.assertEqual(alerts[2]["category"], "disabled_source")
+
+    def test_source_state_alerts_escalate_repeated_unknown_failures(self):
+        alerts = source_state_alerts(
+            [
+                {
+                    "source": "asx_biopharma_announcements",
+                    "enabled": True,
+                    "last_status": "failed",
+                    "failure_type": "unknown",
+                    "failure_severity": "error",
+                    "remediation_hint": "",
+                    "consecutive_failures": 3,
+                }
+            ]
+        )
+
+        self.assertEqual(alerts[0]["level"], "critical")
 
 
 def _fixed_time():

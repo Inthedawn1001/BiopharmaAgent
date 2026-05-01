@@ -206,13 +206,15 @@ def state_summary(path: Path | str, sources: list[SourceRef] | None = None) -> d
         for source in sources:
             records_by_name.setdefault(source.name, empty_source_state(source))
     items = [records_by_name[name] for name in sorted(records_by_name)]
+    alerts = source_state_alerts(items)
     return {
         "path": str(Path(path)),
         "backend": "jsonl",
         "generated_at": _isoformat(utc_now()),
         "items": items,
         "count": len(items),
-        "summary": _summary(items),
+        "summary": _summary(items, alerts),
+        "alerts": alerts,
     }
 
 
@@ -228,13 +230,15 @@ def source_state_summary(
         for source in sources:
             records_by_name.setdefault(source.name, empty_source_state(source))
     items = [records_by_name[name] for name in sorted(records_by_name)]
+    alerts = source_state_alerts(items)
     return {
         "path": path,
         "backend": backend,
         "generated_at": _isoformat(utc_now()),
         "items": items,
         "count": len(items),
-        "summary": _summary(items),
+        "summary": _summary(items, alerts),
+        "alerts": alerts,
     }
 
 
@@ -265,7 +269,7 @@ def empty_source_state(source: SourceRef) -> dict[str, Any]:
     }
 
 
-def _summary(items: list[dict[str, Any]]) -> dict[str, Any]:
+def _summary(items: list[dict[str, Any]], alerts: list[dict[str, Any]]) -> dict[str, Any]:
     success = sum(1 for item in items if item.get("last_status") == "success")
     failed = sum(1 for item in items if item.get("last_status") == "failed")
     never_run = sum(1 for item in items if item.get("last_status") == "never_run")
@@ -287,6 +291,7 @@ def _summary(items: list[dict[str, Any]]) -> dict[str, Any]:
         "last_skipped_seen": total_skipped,
         "health_ratio": round(success / max(1, success + failed), 4),
         "failure_types": failure_types,
+        "alert_counts": _alert_counts(alerts),
     }
 
 
@@ -362,8 +367,117 @@ def classify_source_error(
     )
 
 
+def source_state_alerts(items: list[dict[str, Any]], limit: int = 8) -> list[dict[str, Any]]:
+    """Build prioritized operator alerts from source state records."""
+
+    alerts: list[dict[str, Any]] = []
+    for item in items:
+        source = str(item.get("source") or "")
+        if not source:
+            continue
+        enabled = bool(item.get("enabled", True))
+        status = str(item.get("last_status") or "never_run")
+        failure_type = str(item.get("failure_type") or "none")
+        consecutive_failures = int(item.get("consecutive_failures", 0) or 0)
+        hint = str(item.get("remediation_hint") or "")
+        if not enabled:
+            alerts.append(
+                _alert(
+                    item,
+                    level="info",
+                    category="disabled_source",
+                    title="Source disabled",
+                    message=f"{source} is present in the catalog but disabled for collection.",
+                    action=hint or "Enable this source only after confirming access rules and parser readiness.",
+                )
+            )
+            continue
+        if status != "failed":
+            continue
+
+        level = "critical" if _is_critical_failure(failure_type, consecutive_failures) else "warning"
+        title = _failure_alert_title(failure_type)
+        message = (
+            f"{source} failed with {failure_type}; "
+            f"{consecutive_failures} consecutive failure"
+            f"{'' if consecutive_failures == 1 else 's'} recorded."
+        )
+        alerts.append(
+            _alert(
+                item,
+                level=level,
+                category=failure_type,
+                title=title,
+                message=message,
+                action=hint or "Review the latest run log and retry with a small limit.",
+            )
+        )
+
+    return sorted(alerts, key=_alert_sort_key)[: max(0, limit)]
+
+
 def _document_ids(documents: list[RawDocument]) -> list[str]:
     return sorted({document.document_id for document in documents if document.document_id})
+
+
+def _alert(
+    item: dict[str, Any],
+    *,
+    level: str,
+    category: str,
+    title: str,
+    message: str,
+    action: str,
+) -> dict[str, Any]:
+    return {
+        "id": f"{item.get('source', 'source')}:{category}",
+        "source": str(item.get("source") or ""),
+        "level": level,
+        "category": category,
+        "title": title,
+        "message": message,
+        "action": action,
+        "failure_type": str(item.get("failure_type") or "none"),
+        "failure_severity": str(item.get("failure_severity") or "info"),
+        "consecutive_failures": int(item.get("consecutive_failures", 0) or 0),
+        "last_status": str(item.get("last_status") or "never_run"),
+        "last_completed_at": str(item.get("last_completed_at") or ""),
+        "updated_at": str(item.get("updated_at") or ""),
+    }
+
+
+def _alert_sort_key(alert: dict[str, Any]) -> tuple[int, int, str, str]:
+    return (
+        _ALERT_LEVEL_RANK.get(str(alert.get("level") or ""), 9),
+        -int(alert.get("consecutive_failures", 0) or 0),
+        str(alert.get("last_completed_at") or ""),
+        str(alert.get("source") or ""),
+    )
+
+
+def _alert_counts(alerts: list[dict[str, Any]]) -> dict[str, int]:
+    counts = {"critical": 0, "warning": 0, "info": 0, "total": len(alerts)}
+    for alert in alerts:
+        level = str(alert.get("level") or "info")
+        if level in counts:
+            counts[level] += 1
+    return counts
+
+
+def _is_critical_failure(failure_type: str, consecutive_failures: int) -> bool:
+    return failure_type in _CRITICAL_FAILURE_TYPES or consecutive_failures >= 3
+
+
+def _failure_alert_title(failure_type: str) -> str:
+    return {
+        "auth": "Source credentials need attention",
+        "llm": "LLM analysis is blocking collection",
+        "network": "Source network path is unstable",
+        "parser": "Source parser needs review",
+        "rate_limit": "Source is rate limited",
+        "storage": "Storage backend is blocking collection",
+        "unknown": "Source failure needs triage",
+    }.get(failure_type, "Source failure needs triage")
 
 
 def _failure_type_counts(items: list[dict[str, Any]]) -> dict[str, int]:
@@ -473,3 +587,5 @@ _STORAGE_PATTERNS = (
     re.compile(r"\barchive\b"),
     re.compile(r"\bobject store\b"),
 )
+_CRITICAL_FAILURE_TYPES = {"auth", "llm", "storage"}
+_ALERT_LEVEL_RANK = {"critical": 0, "warning": 1, "info": 2}
