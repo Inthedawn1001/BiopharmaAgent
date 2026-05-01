@@ -239,7 +239,7 @@ Airflow DAG smoke uses the Docker Compose profile to start the official Airflow 
 scripts/run_airflow_smoke.sh
 ```
 
-The Airflow smoke validates DAG import, executes `biopharma_fetch_sources` once, checks that the latest run log entry succeeded, and asserts at least one document was selected.
+The Airflow smoke runs the DAG in `daily-cycle` mode by default. It validates DAG import, executes `biopharma_fetch_sources` once, checks that the latest daily-cycle run log entry succeeded, asserts at least one document was selected, and verifies Markdown/JSON brief artifacts. Set `BIOPHARMA_AIRFLOW_MODE=scheduled-fetch` to exercise the legacy collection-only wrapper. See [infra/airflow/README.md](infra/airflow/README.md) for production scheduler environment variables.
 
 Start the local web workbench:
 
@@ -272,5 +272,5 @@ Latest local verification on May 1, 2026:
 - Unit tests: `PYTHONPATH=src python -m unittest discover -s tests` -> 115 passed, 1 skipped
 - Storage smoke: `scripts/run_storage_smoke.sh` -> PostgreSQL and MinIO checks passed without external news-source dependency
 - Full-stack smoke: `scripts/run_full_stack_smoke.sh` -> PostgreSQL migration checked, MinIO raw object verified, FDA real collection selected 1 document and analyzed 1 document
-- Airflow smoke: `scripts/run_airflow_smoke.sh` -> DAG loaded, latest run log entry succeeded with 1 selected document, and source state was written
+- Airflow smoke: `scripts/run_airflow_smoke.sh` -> DAG loaded, daily cycle succeeded with 1 selected document, source state was written, and brief artifacts were generated
 - Content hygiene: tracked files contain no Chinese text, real host name, real local user name, or committed API key

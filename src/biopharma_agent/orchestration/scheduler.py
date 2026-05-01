@@ -180,11 +180,19 @@ def _run_summary(records: list[dict[str, Any]]) -> dict[str, Any]:
     failed_count = sum(1 for record in records if record.get("status") == "failed")
     latest = records[-1] if records else {}
     result_rows: list[dict[str, Any]] = []
+    brief_rows: list[dict[str, Any]] = []
     for record in records:
         result = record.get("result")
-        if not isinstance(result, list):
-            continue
-        result_rows.extend(item for item in result if isinstance(item, dict))
+        result_rows.extend(_collection_rows(result))
+        brief = result.get("brief", {}) if isinstance(result, dict) and isinstance(result.get("brief"), dict) else {}
+        if brief:
+            brief_rows.append(brief)
+    latest_result = latest.get("result") if isinstance(latest, dict) else None
+    latest_brief = (
+        latest_result.get("brief", {})
+        if isinstance(latest_result, dict) and isinstance(latest_result.get("brief"), dict)
+        else {}
+    )
     return {
         "success": success_count,
         "failed": failed_count,
@@ -193,4 +201,17 @@ def _run_summary(records: list[dict[str, Any]]) -> dict[str, Any]:
         "selected": sum(int(item.get("selected") or 0) for item in result_rows),
         "analyzed": sum(int(item.get("analyzed") or 0) for item in result_rows),
         "skipped_seen": sum(int(item.get("skipped_seen") or 0) for item in result_rows),
+        "briefs": len(brief_rows),
+        "brief_document_count": sum(int(item.get("document_count") or 0) for item in brief_rows),
+        "latest_brief_document_count": int(latest_brief.get("document_count") or 0),
     }
+
+
+def _collection_rows(result: Any) -> list[dict[str, Any]]:
+    if isinstance(result, list):
+        return [item for item in result if isinstance(item, dict)]
+    if isinstance(result, dict):
+        fetch = result.get("fetch")
+        if isinstance(fetch, list):
+            return [item for item in fetch if isinstance(item, dict)]
+    return []

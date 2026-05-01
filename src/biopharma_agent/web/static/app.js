@@ -444,6 +444,12 @@ function runResultSummary(row) {
     const analyzed = row.result.reduce((total, item) => total + Number(item.analyzed || 0), 0);
     return `${row.result.length} sources · ${selected} selected · ${analyzed} analyzed`;
   }
+  if (row.result && Array.isArray(row.result.fetch)) {
+    const selected = row.result.fetch.reduce((total, item) => total + Number(item.selected || 0), 0);
+    const analyzed = row.result.fetch.reduce((total, item) => total + Number(item.analyzed || 0), 0);
+    const documents = Number(row.result.brief?.document_count || 0);
+    return `${row.result.fetch.length} sources · ${selected} selected · ${analyzed} analyzed · ${documents} brief docs`;
+  }
   return row.result == null ? "-" : "ok";
 }
 
