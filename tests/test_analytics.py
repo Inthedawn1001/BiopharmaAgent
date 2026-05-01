@@ -9,19 +9,19 @@ from biopharma_agent.analytics.topic import KeywordTopicAnalyzer
 
 class AnalyticsTest(unittest.TestCase):
     def test_topic_terms(self):
-        terms = KeywordTopicAnalyzer().top_terms("PD-1 PD-1 融资 融资 临床")
+        terms = KeywordTopicAnalyzer().top_terms("PD-1 PD-1 financing financing clinical")
         term_counts = dict(terms)
 
         self.assertEqual(term_counts["pd-1"], 2)
-        self.assertEqual(term_counts["融资"], 2)
+        self.assertEqual(term_counts["financing"], 2)
 
     def test_sentiment(self):
-        result = KeywordSentimentAnalyzer().analyze("公司获批并增长，但存在风险")
+        result = KeywordSentimentAnalyzer().analyze("The company gained approval and growth, but risk remains")
 
         self.assertEqual(result["label"], "positive")
 
     def test_risk(self):
-        result = RuleBasedRiskScorer().score("项目临床失败并被暂停")
+        result = RuleBasedRiskScorer().score("The project had clinical failure and a clinical hold")
 
         self.assertEqual(result["severity"], "high")
 
@@ -32,7 +32,7 @@ class AnalyticsTest(unittest.TestCase):
         self.assertTrue(result["outliers"])
 
     def test_combined_report(self):
-        report = DeterministicTextAnalytics().analyze("测试生物融资增长")
+        report = DeterministicTextAnalytics().analyze("TestBio financing growth")
 
         self.assertIn("top_terms", report)
         self.assertIn("sentiment", report)

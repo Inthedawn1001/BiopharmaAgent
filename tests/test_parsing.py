@@ -5,16 +5,16 @@ from biopharma_agent.parsing.text import extract_main_text, parse_raw_document
 
 
 class ParsingTest(unittest.TestCase):
-    def test_plain_text_parser_detects_chinese(self):
+    def test_plain_text_parser_detects_english(self):
         raw = RawDocument(
             source=SourceRef(name="test", kind="manual"),
             document_id="1",
-            raw_text="测试生物宣布完成B轮融资。",
+            raw_text="TestBio announced a completed Series B financing.",
         )
 
         parsed = parse_raw_document(raw)
 
-        self.assertEqual(parsed.language, "zh")
+        self.assertEqual(parsed.language, "en")
         self.assertEqual(parsed.metadata["parser"], "plain_text")
         self.assertTrue(parsed.checksum)
 

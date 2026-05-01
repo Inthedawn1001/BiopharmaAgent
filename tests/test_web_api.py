@@ -18,7 +18,9 @@ class WebApiTest(unittest.TestCase):
         self.assertIn("Biopharma Agent Workbench", body)
 
     def test_deterministic_analysis(self):
-        data = api.analyze_deterministic({"text": "测试生物融资增长，但存在临床失败风险"})
+        data = api.analyze_deterministic(
+            {"text": "TestBio financing growth, with clinical failure risk remaining"}
+        )
 
         self.assertIn("sentiment", data)
         self.assertIn("risk", data)

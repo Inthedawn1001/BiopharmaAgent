@@ -10,9 +10,11 @@ from biopharma_agent.parsing.text import checksum_text
 from biopharma_agent.storage.local import LocalAnalysisRepository
 
 DEMO_TEXT = (
-    "某生物技术公司宣布完成B轮融资，募集资金将用于推进PD-1联合疗法的临床II期研究，"
-    "并扩展自身免疫疾病管线。公司表示，本轮融资由产业基金和多家投资机构共同参与。"
-    "分析人士认为，该事件可能改善公司研发资金状况，但临床失败、监管审批和市场竞争仍是主要风险。"
+    "A biotech company announced Series B financing to advance a PD-1 combination "
+    "therapy through phase 2 development and expand an autoimmune pipeline. The "
+    "round included strategic and financial investors. Analysts noted that the "
+    "financing may improve the company's research runway, while clinical failure, "
+    "regulatory approval, and market competition remain key risks."
 )
 
 
@@ -25,68 +27,68 @@ def seed_demo_data(
     raw = RawDocument(
         source=SourceRef(name="demo", kind="manual"),
         document_id="demo-financing-pd1",
-        title="Demo: PD-1 联合疗法融资事件",
+        title="Demo: PD-1 Combination Therapy Financing Event",
         raw_text=DEMO_TEXT,
     )
     parsed = ParsedDocument(
         raw=raw,
         text=DEMO_TEXT,
         checksum=checksum_text(DEMO_TEXT),
-        language="zh",
+        language="en",
     )
     result = PipelineResult(
         document=parsed,
         model="demo",
         provider="deterministic",
         insight={
-            "summary": "某生物技术公司完成B轮融资，资金将用于PD-1联合疗法临床II期研究。",
-            "language": "zh",
+            "summary": "A biotech company completed Series B financing for a PD-1 phase 2 program.",
+            "language": "en",
             "entities": [
                 {
-                    "name": "某生物技术公司",
+                    "name": "Demo Biotech",
                     "type": "company",
-                    "normalized_name": "某生物技术公司",
+                    "normalized_name": "Demo Biotech",
                     "confidence": 0.8,
-                    "evidence": "某生物技术公司宣布完成B轮融资",
+                    "evidence": "A biotech company announced Series B financing",
                 },
                 {
-                    "name": "PD-1联合疗法",
+                    "name": "PD-1 combination therapy",
                     "type": "drug",
-                    "normalized_name": "PD-1联合疗法",
+                    "normalized_name": "PD-1 combination therapy",
                     "confidence": 0.85,
-                    "evidence": "推进PD-1联合疗法的临床II期研究",
+                    "evidence": "advance a PD-1 combination therapy through phase 2",
                 },
             ],
             "events": [
                 {
                     "event_type": "financing",
-                    "title": "B轮融资",
+                    "title": "Series B financing",
                     "date": "",
-                    "companies": ["某生物技术公司"],
+                    "companies": ["Demo Biotech"],
                     "amount": "",
                     "stage": "B",
                     "confidence": 0.9,
-                    "evidence": "宣布完成B轮融资",
+                    "evidence": "announced Series B financing",
                 }
             ],
             "relations": [
                 {
-                    "subject": "某生物技术公司",
+                    "subject": "Demo Biotech",
                     "predicate": "DEVELOPS",
-                    "object": "PD-1联合疗法",
+                    "object": "PD-1 combination therapy",
                     "confidence": 0.8,
-                    "evidence": "募集资金将用于推进PD-1联合疗法",
+                    "evidence": "financing will advance the PD-1 combination therapy",
                 }
             ],
             "risk_signals": [
                 {
                     "risk_type": "clinical_and_regulatory",
                     "severity": "medium",
-                    "description": "临床失败、监管审批和市场竞争仍是主要风险。",
-                    "evidence": "临床失败、监管审批和市场竞争仍是主要风险",
+                    "description": "Clinical failure, regulatory approval, and competition remain key risks.",
+                    "evidence": "clinical failure, regulatory approval, and market competition remain key risks",
                 }
             ],
-            "market_implications": ["融资可能改善研发资金状况。"],
+            "market_implications": ["The financing may improve the company's research runway."],
             "needs_human_review": False,
         },
     )
@@ -96,8 +98,7 @@ def seed_demo_data(
             document_id=raw.document_id,
             reviewer="demo-analyst",
             decision="accept",
-            comment="演示记录：抽取结果可用于收件箱和复核流测试。",
+            comment="Demo record for inbox and review workflow validation.",
         )
     )
     return {"insights": str(insight_path), "feedback": str(feedback_path)}
-

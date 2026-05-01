@@ -6,19 +6,16 @@ from dataclasses import dataclass
 
 
 RISK_WEIGHTS = {
-    "临床失败": 5,
-    "终止": 4,
-    "暂停": 4,
-    "监管调查": 5,
-    "诉讼": 3,
-    "退市": 5,
-    "亏损扩大": 3,
     "failed trial": 5,
+    "clinical failure": 5,
     "terminated": 4,
+    "paused": 4,
     "clinical hold": 5,
+    "regulatory investigation": 5,
     "investigation": 4,
     "litigation": 3,
     "delisting": 5,
+    "losses widened": 3,
 }
 
 
@@ -46,4 +43,3 @@ class RuleBasedRiskScorer:
         else:
             severity = "none"
         return {"score": raw_score, "severity": severity, "matches": matched}
-

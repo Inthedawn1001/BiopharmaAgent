@@ -7,30 +7,22 @@ from dataclasses import dataclass
 
 
 POSITIVE_TERMS = {
-    "获批",
-    "突破",
-    "增长",
-    "盈利",
-    "融资",
-    "合作",
     "positive",
     "growth",
     "approval",
+    "approved",
+    "breakthrough",
     "profit",
     "partnership",
     "financing",
+    "collaboration",
 }
 
 NEGATIVE_TERMS = {
-    "失败",
-    "终止",
-    "下滑",
-    "亏损",
-    "调查",
-    "诉讼",
-    "风险",
     "failed",
+    "failure",
     "terminate",
+    "terminated",
     "decline",
     "loss",
     "investigation",
@@ -70,4 +62,3 @@ def _count_term(text: str, term: str) -> int:
     if re.search(r"[\u4e00-\u9fff]", term):
         return text.count(term)
     return len(re.findall(rf"\b{re.escape(term)}\b", text))
-

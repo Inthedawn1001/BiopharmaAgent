@@ -22,19 +22,19 @@ class FakeProvider(LLMProvider):
         return LLMResponse(
             text=json.dumps(
                 {
-                    "summary": "公司完成融资并推进临床项目。",
-                    "language": "zh",
+                    "summary": "The company completed financing and advanced its clinical program.",
+                    "language": "en",
                     "entities": [],
                     "events": [
                         {
                             "event_type": "financing",
-                            "title": "B轮融资",
+                            "title": "Series B financing",
                             "date": "",
-                            "companies": ["测试生物"],
+                            "companies": ["TestBio"],
                             "amount": "",
                             "stage": "B",
                             "confidence": 0.9,
-                            "evidence": "完成B轮融资",
+                            "evidence": "completed Series B financing",
                         }
                     ],
                     "relations": [],
@@ -42,7 +42,6 @@ class FakeProvider(LLMProvider):
                     "market_implications": [],
                     "needs_human_review": False,
                 },
-                ensure_ascii=False,
             ),
             model="fake-model",
             provider="fake",
@@ -56,16 +55,15 @@ class PipelineTest(unittest.TestCase):
     def test_extract_insight(self):
         pipeline = BiopharmaAnalysisPipeline(FakeProvider())
 
-        insight = pipeline.extract_insight("测试生物完成B轮融资。")
+        insight = pipeline.extract_insight("TestBio completed Series B financing.")
 
         self.assertEqual(insight["events"][0]["event_type"], "financing")
 
     def test_classify_event(self):
         pipeline = BiopharmaAnalysisPipeline(FakeProvider())
 
-        self.assertEqual(pipeline.classify_event("测试生物完成B轮融资。"), "financing")
+        self.assertEqual(pipeline.classify_event("TestBio completed Series B financing."), "financing")
 
 
 if __name__ == "__main__":
     unittest.main()
-

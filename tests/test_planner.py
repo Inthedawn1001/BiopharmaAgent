@@ -25,9 +25,8 @@ class FakePlannerProvider(LLMProvider):
                     "document_type": "news",
                     "priority": "high",
                     "recommended_steps": ["summarize", "extract_events", "human_review"],
-                    "reason": "融资事件需要快速跟踪。",
+                    "reason": "Financing events require fast tracking.",
                 },
-                ensure_ascii=False,
             ),
             model="fake",
             provider="fake",
@@ -41,7 +40,7 @@ class PlannerTest(unittest.TestCase):
     def test_planner_returns_routing_plan(self):
         planner = LLMTaskPlanner(FakePlannerProvider())
 
-        plan = planner.plan("某公司完成融资。")
+        plan = planner.plan("A company completed financing.")
 
         self.assertEqual(plan["document_type"], "news")
         self.assertIn("extract_events", plan["recommended_steps"])
@@ -49,4 +48,3 @@ class PlannerTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

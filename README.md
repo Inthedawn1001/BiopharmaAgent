@@ -1,28 +1,29 @@
 # Biopharma Agent
 
-面向生物医药产业与资本市场信息的 agent 工具骨架。
+Agent toolkit for biopharma industry and capital-market intelligence.
 
-当前版本已经落地 LLM 能力层、RSS 数据源采集、本地端到端分析流程、JSONL/可选 PostgreSQL 存储接口、本地/S3 兼容原始文档归档、图谱导出和本地 Web 工作台。调度、Neo4j 在线写入和更深入的 NLP/时序建模仍按模块预留扩展点，后续可以继续接入 Scrapy、Airflow、PostgreSQL、Neo4j、spaCy、LDA、ARIMA 等组件。
+The current version includes the LLM abstraction layer, feed and source collection, local end-to-end analysis workflows, JSONL and optional PostgreSQL storage, local and S3-compatible raw-document archiving, graph export, and a local web workbench. The architecture keeps scheduling, online Neo4j writes, and deeper NLP/time-series modeling as clear extension points for Scrapy, Airflow, PostgreSQL, Neo4j, spaCy, LDA, ARIMA, and related components.
 
-## 已实现
+## Implemented
 
-- 统一 LLM 请求/响应类型
-- OpenAI-compatible、Anthropic、Gemini、Ollama、自定义 HTTP 适配器
-- Chat、embedding、JSON schema 结构化输出能力抽象
-- 生物医药与资本市场文档分析管线
-- RSS/Atom、HTML listing、ASX 公告、SEC EDGAR submissions 数据源抓取和端到端入库流程
-- 内置数据源目录包含监管、行业新闻和市场新闻源，并带 category/priority/rate-limit 元数据
-- HTML listing adapter 支持没有稳定 RSS 的页面型来源，先抽取列表链接进入管线
-- JSONL 本地仓储、幂等写入、PostgreSQL schema/adapter 和 SQL 级分页查询
-- 人工反馈仓储支持 JSONL 与 PostgreSQL 两种后端
-- 原始文档归档支持本地文件系统与 S3/MinIO 兼容对象存储
-- 轻量调度命令支持一次性/循环抓取，并记录 JSONL run log
-- 图谱节点/边 JSONL 导出，便于后续导入 Neo4j
-- 本地 Web 工作台：文档分析、文档收件箱、运行监控、手动触发抓取、人工复核、时序分析、模型配置查看、运行诊断
-- CLI：检查模型、分析文本、打印执行计划、输出运行诊断
-- 无第三方依赖的单元测试
+- Provider-neutral LLM request and response types
+- OpenAI-compatible, Anthropic, Gemini, Ollama, and custom HTTP adapters
+- Chat, embedding, and JSON-schema structured output abstractions
+- Biopharma and capital-market document analysis pipeline
+- RSS/Atom, HTML listing, ASX announcement, and SEC EDGAR submissions collection with end-to-end storage
+- Built-in source catalog for regulatory, industry news, and market news sources with category, priority, and rate-limit metadata
+- HTML listing adapter for sources without stable RSS feeds
+- JSONL local repository, idempotent writes, PostgreSQL schema/adapter, and SQL-level pagination
+- Human feedback repository for JSONL and PostgreSQL backends
+- Raw document archive for local filesystem and S3/MinIO-compatible object storage
+- Lightweight scheduled fetch command with JSONL run logs
+- Graph-shaped node and edge JSONL export for later Neo4j import
+- Local web workbench for document analysis, document inbox, run monitoring, manual fetch triggers, human review, time-series analysis, model settings, and runtime diagnostics
+- CLI commands for model checks, analysis, execution plans, migrations, and diagnostics
+- Dependency-light unit tests
+- GitHub Actions CI for unit-test regression checks
 
-## 快速开始
+## Quick Start
 
 ```bash
 PYTHONPATH=src python3 -m unittest discover -s tests
@@ -30,7 +31,7 @@ PYTHONPATH=src python3 -m biopharma_agent.cli plan
 PYTHONPATH=src python3 -m biopharma_agent.cli diagnose
 ```
 
-配置环境变量后可以调用真实模型：
+Configure environment variables to call a real model:
 
 ```bash
 export BIOPHARMA_LLM_PROVIDER=openai
@@ -38,11 +39,11 @@ export BIOPHARMA_LLM_BASE_URL=https://api.openai.com/v1
 export BIOPHARMA_LLM_API_KEY=...
 export BIOPHARMA_LLM_MODEL=gpt-4.1-mini
 
-echo "某生物技术公司宣布完成B轮融资并推进PD-1项目临床II期。" \
+echo "A biotech company completed Series B financing and advanced a PD-1 phase 2 program." \
   | PYTHONPATH=src python3 -m biopharma_agent.cli analyze-text --stdin
 ```
 
-本地 Ollama 示例：
+Local Ollama example:
 
 ```bash
 export BIOPHARMA_LLM_PROVIDER=ollama
@@ -52,7 +53,7 @@ export BIOPHARMA_LLM_MODEL=qwen2.5:7b
 PYTHONPATH=src python3 -m biopharma_agent.cli llm-check
 ```
 
-DeepSeek 示例：
+DeepSeek example:
 
 ```bash
 export BIOPHARMA_LLM_PROVIDER=custom
@@ -63,7 +64,7 @@ export BIOPHARMA_LLM_API_KEY=...
 PYTHONPATH=src python3 -m biopharma_agent.cli llm-check
 ```
 
-运行本地端到端流程，将原始文本归档并把结构化结果写入 JSONL：
+Run a local end-to-end workflow that archives raw text and writes structured results to JSONL:
 
 ```bash
 PYTHONPATH=src python3 -m biopharma_agent.cli run-local \
@@ -73,10 +74,10 @@ PYTHONPATH=src python3 -m biopharma_agent.cli run-local \
   --output data/processed/insights.jsonl
 ```
 
-无需 LLM 的本地分析与反馈记录：
+Run deterministic local analysis and write feedback without an LLM:
 
 ```bash
-echo "测试生物融资增长，但存在临床失败风险" \
+echo "A biotech company raised financing, but clinical failure risk remains." \
   | PYTHONPATH=src python3 -m biopharma_agent.cli analyze-deterministic --stdin
 
 PYTHONPATH=src python3 -m biopharma_agent.cli analyze-timeseries 1 2 3 100
@@ -89,14 +90,14 @@ PYTHONPATH=src python3 -m biopharma_agent.cli feedback \
 PYTHONPATH=src python3 -m biopharma_agent.cli seed-demo
 ```
 
-查看和抓取内置 RSS/Atom 数据源：
+List and fetch built-in RSS/Atom sources:
 
 ```bash
 PYTHONPATH=src python3 -m biopharma_agent.cli list-sources
 PYTHONPATH=src python3 -m biopharma_agent.cli list-sources --category industry_news
 PYTHONPATH=src python3 -m biopharma_agent.cli fetch-source fda_press_releases --limit 2
 
-# 配置 LLM 环境变量后，可直接抓取并分析入库
+# After configuring LLM environment variables, fetch and analyze directly.
 PYTHONPATH=src python3 -m biopharma_agent.cli fetch-sources \
   --sources fda_press_releases biopharma_dive_news sec_biopharma_filings asx_biopharma_announcements \
   --limit 1 \
@@ -105,13 +106,9 @@ PYTHONPATH=src python3 -m biopharma_agent.cli fetch-sources \
   --analyze
 ```
 
-`fetch-sources` 会按 source metadata 自动选择采集器：普通 RSS/Atom、HTML listing、
-ASX announcements 或 SEC submissions。ASX 默认 watchlist 为 `CSL/COH/RMD`；
-SEC 默认覆盖 Pfizer、Moderna、Amgen、Gilead、Regeneron 的 `8-K/10-K/10-Q/S-1/424B*`
-类 filings。FDA press releases 和 MedWatch 仍使用官方 RSS，加 `--fetch-details`
-可继续抓详情页并清洗正文。
+`fetch-sources` dispatches by source metadata to the correct collector: RSS/Atom, HTML listing, ASX announcements, or SEC submissions. ASX defaults to the `CSL/COH/RMD` watchlist. SEC defaults to Pfizer, Moderna, Amgen, Gilead, and Regeneron filings for `8-K/10-K/10-Q/S-1/424B*`. FDA press releases and MedWatch use official RSS feeds; `--fetch-details` deep-fetches detail pages and can clean main body text.
 
-抓取 HTML 列表页来源：
+Fetch HTML listing sources:
 
 ```bash
 PYTHONPATH=src python3 -m biopharma_agent.cli list-sources --kind industry_news_html
@@ -124,17 +121,14 @@ PYTHONPATH=src python3 -m biopharma_agent.cli fetch-html-source investegate_anno
 PYTHONPATH=src python3 -m biopharma_agent.cli fetch-html-sources --limit 3
 ```
 
-HTML 源可以在 metadata 中标记 `enabled=false`。例如 News-Medical 当前因
-robots.txt 限制保留为候选源，不会被默认批量抓取；Investegate 公告列表已验证可抓取。
-默认 HTML 抓取只保存列表项标题和链接；加 `--fetch-details` 会继续抓取详情页。再加
-`--clean-html-details` 会将详情页从全页 HTML 清洗成主正文文本，减少导航、页脚等噪声。
+HTML sources can be marked `enabled=false` in metadata. News-Medical is kept as a candidate because robots.txt currently blocks the listing page, while Investegate announcement listing collection has been verified. By default, HTML collection stores listing item titles and links. `--fetch-details` fetches each detail page, and `--clean-html-details` converts full-page HTML into main body text to reduce navigation and footer noise.
 
-默认写入 JSONL，并会对同一 `source + document_id + checksum + provider + model` 做幂等替换。若需要保留重复分析记录，可在 `run-local` 或 `run-url` 中使用 `--append-duplicates`。
+JSONL is the default output format. The local repository idempotently replaces results with the same `source + document_id + checksum + provider + model`. Use `--append-duplicates` on `run-local` or `run-url` when repeated analyses should be preserved.
 
-轻量调度入口，可作为 cron 的单次任务，也可以本地循环运行：
+Lightweight scheduling can run once for cron-style jobs or loop locally:
 
 ```bash
-# 单次执行并记录 data/runs/fetch_runs.jsonl
+# Run once and write data/runs/fetch_runs.jsonl.
 PYTHONPATH=src python3 -m biopharma_agent.cli scheduled-fetch \
   --sources fda_press_releases biopharma_dive_news \
   --limit 2 \
@@ -142,14 +136,14 @@ PYTHONPATH=src python3 -m biopharma_agent.cli scheduled-fetch \
   --fetch-details \
   --clean-html-details
 
-# 每小时持续执行，直到手动停止
+# Run every hour until stopped.
 PYTHONPATH=src python3 -m biopharma_agent.cli scheduled-fetch \
   --limit 2 \
   --interval-seconds 3600 \
   --max-runs 0
 ```
 
-PostgreSQL 存储可选启用，文档收件箱会使用 SQL 级过滤、计数、分页和 facets；人工复核记录也会写入 `feedback` 表：
+PostgreSQL storage is optional. When enabled, the document inbox uses SQL-level filtering, counts, pagination, and facets. Human review records are stored in the `feedback` table:
 
 ```bash
 python3 -m pip install "psycopg[binary]>=3"
@@ -160,10 +154,9 @@ PYTHONPATH=src python3 -m biopharma_agent.cli migrate-postgres
 scripts/run_postgres_integration.sh
 ```
 
-`migrate-postgres` 会幂等执行 `infra/postgres/schema.sql`，并把 schema checksum 写入
-`schema_migrations`。如果不用 Docker Compose，也可以手动创建数据库后运行同一条迁移命令。
+`migrate-postgres` idempotently applies `infra/postgres/schema.sql` and writes the schema checksum to `schema_migrations`. If Docker Compose is not used, manually create a database and run the same migration command.
 
-MinIO/S3 原始文档归档可选启用：
+MinIO/S3 raw-document archiving is optional:
 
 ```bash
 python3 -m pip install "boto3>=1.34"
@@ -176,40 +169,39 @@ export BIOPHARMA_RAW_ARCHIVE_S3_SECRET_ACCESS_KEY=minioadmin
 scripts/run_minio_smoke.sh
 ```
 
-PostgreSQL + MinIO + 真实采集的全链路 smoke：
+PostgreSQL + MinIO + real collection full-stack smoke:
 
 ```bash
 python3 -m pip install "psycopg[binary]>=3" "boto3>=1.34"
 scripts/run_full_stack_smoke.sh
 ```
 
-Airflow DAG smoke 会通过 Docker Compose profile 启动官方 Airflow 镜像并执行
-`biopharma_fetch_sources` DAG：
+Airflow DAG smoke uses the Docker Compose profile to start the official Airflow image and run the `biopharma_fetch_sources` DAG:
 
 ```bash
 scripts/run_airflow_smoke.sh
 ```
 
-启动本地 Web 工作台：
+Start the local web workbench:
 
 ```bash
 PYTHONPATH=src python3 -m biopharma_agent.cli serve --host 127.0.0.1 --port 8765
 ```
 
-然后访问 `http://127.0.0.1:8765`。工作台包含文档分析、历史文档收件箱、运行监控、手动触发抓取、LLM 抽取、任务路由、人工反馈、反馈记录浏览、时序分析、模型配置查看和运行诊断。收件箱支持按来源、事件类型、风险等级和关键词筛选，并支持分页与排序。“运行监控”页可以选择数据源并触发抓取，默认会调用已配置的 LLM 做真实分析；未配置 API key 时，该任务会失败并写入 run log，方便排障。“运行诊断”页会检查 LLM、存储、原始归档、数据源、Docker 和 GitHub 同步状态；该接口只返回密钥是否存在，不会返回密钥值。
+Then visit `http://127.0.0.1:8765`. The workbench includes document analysis, document inbox, run monitoring, manual fetch triggers, LLM extraction, task routing, human feedback, feedback browsing, time-series analysis, model settings, and runtime diagnostics. The inbox supports filtering by source, event type, risk, and keyword, plus pagination and sorting. The run monitor can trigger selected sources and uses the configured LLM for real analysis by default. If the API key is missing, the job fails and writes a run log for troubleshooting. Runtime diagnostics check LLM, storage, raw archive, sources, Docker, and GitHub sync state. The diagnostics API reports whether credentials are present but never returns secret values.
 
-## 架构入口
+## Architecture Entry Points
 
-- LLM 类型定义：[src/biopharma_agent/llm/types.py](src/biopharma_agent/llm/types.py)
-- Provider 工厂：[src/biopharma_agent/llm/factory.py](src/biopharma_agent/llm/factory.py)
-- 分析管线：[src/biopharma_agent/analysis/pipeline.py](src/biopharma_agent/analysis/pipeline.py)
-- 模块契约：[src/biopharma_agent/contracts.py](src/biopharma_agent/contracts.py)
-- 本地工作流：[src/biopharma_agent/orchestration/workflow.py](src/biopharma_agent/orchestration/workflow.py)
-- 存储仓储接口：[src/biopharma_agent/storage/repository.py](src/biopharma_agent/storage/repository.py)
-- 反馈仓储接口：[src/biopharma_agent/ops/feedback.py](src/biopharma_agent/ops/feedback.py)
-- PostgreSQL schema：[infra/postgres/schema.sql](infra/postgres/schema.sql)
-- PostgreSQL 本地环境：[compose.yaml](compose.yaml)
-- MinIO 原始归档：[infra/minio/README.md](infra/minio/README.md)
-- Airflow 调度包装：[infra/airflow/README.md](infra/airflow/README.md)
-- Web 工作台：[src/biopharma_agent/web/server.py](src/biopharma_agent/web/server.py)
-- 执行计划：[docs/execution_plan.md](docs/execution_plan.md)
+- LLM types: [src/biopharma_agent/llm/types.py](src/biopharma_agent/llm/types.py)
+- Provider factory: [src/biopharma_agent/llm/factory.py](src/biopharma_agent/llm/factory.py)
+- Analysis pipeline: [src/biopharma_agent/analysis/pipeline.py](src/biopharma_agent/analysis/pipeline.py)
+- Module contracts: [src/biopharma_agent/contracts.py](src/biopharma_agent/contracts.py)
+- Local workflow: [src/biopharma_agent/orchestration/workflow.py](src/biopharma_agent/orchestration/workflow.py)
+- Storage repository interface: [src/biopharma_agent/storage/repository.py](src/biopharma_agent/storage/repository.py)
+- Feedback repository interface: [src/biopharma_agent/ops/feedback.py](src/biopharma_agent/ops/feedback.py)
+- PostgreSQL schema: [infra/postgres/schema.sql](infra/postgres/schema.sql)
+- PostgreSQL local environment: [compose.yaml](compose.yaml)
+- MinIO raw archive: [infra/minio/README.md](infra/minio/README.md)
+- Airflow orchestration wrapper: [infra/airflow/README.md](infra/airflow/README.md)
+- Web workbench: [src/biopharma_agent/web/server.py](src/biopharma_agent/web/server.py)
+- Execution plan: [docs/execution_plan.md](docs/execution_plan.md)

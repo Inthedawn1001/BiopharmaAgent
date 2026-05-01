@@ -13,30 +13,30 @@ class GraphStorageTest(unittest.TestCase):
             raw = RawDocument(
                 source=SourceRef(name="manual", kind="manual"),
                 document_id="doc-1",
-                raw_text="测试生物完成融资。",
+                raw_text="TestBio completed financing.",
             )
-            parsed = ParsedDocument(raw=raw, text=raw.raw_text or "", checksum="abc", language="zh")
+            parsed = ParsedDocument(raw=raw, text=raw.raw_text or "", checksum="abc", language="en")
             result = PipelineResult(
                 document=parsed,
                 model="fake",
                 provider="fake",
                 insight={
-                    "summary": "摘要",
+                    "summary": "Summary",
                     "entities": [
                         {
-                            "name": "测试生物",
+                            "name": "TestBio",
                             "type": "company",
-                            "normalized_name": "测试生物",
+                            "normalized_name": "TestBio",
                             "confidence": 0.9,
-                            "evidence": "完成融资",
+                            "evidence": "completed financing",
                         }
                     ],
                     "events": [
                         {
                             "event_type": "financing",
-                            "title": "融资",
-                            "companies": ["测试生物"],
-                            "evidence": "完成融资",
+                            "title": "Financing",
+                            "companies": ["TestBio"],
+                            "evidence": "completed financing",
                         }
                     ],
                     "relations": [],
@@ -57,4 +57,3 @@ class GraphStorageTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

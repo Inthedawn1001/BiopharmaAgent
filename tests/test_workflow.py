@@ -27,43 +27,42 @@ class FakeWorkflowProvider(LLMProvider):
         return LLMResponse(
             text=json.dumps(
                 {
-                    "summary": "测试摘要",
-                    "language": "zh",
+                    "summary": "Test summary",
+                    "language": "en",
                     "entities": [
                         {
-                            "name": "测试生物",
+                            "name": "TestBio",
                             "type": "company",
-                            "normalized_name": "测试生物",
+                            "normalized_name": "TestBio",
                             "confidence": 0.9,
-                            "evidence": "测试生物宣布完成融资",
+                            "evidence": "TestBio announced completed financing",
                         }
                     ],
                     "events": [
                         {
                             "event_type": "financing",
-                            "title": "融资",
+                            "title": "Financing",
                             "date": "",
-                            "companies": ["测试生物"],
+                            "companies": ["TestBio"],
                             "amount": "",
                             "stage": "",
                             "confidence": 0.9,
-                            "evidence": "宣布完成融资",
+                            "evidence": "announced completed financing",
                         }
                     ],
                     "relations": [
                         {
-                            "subject": "测试生物",
+                            "subject": "TestBio",
                             "predicate": "ANNOUNCED",
-                            "object": "融资",
+                            "object": "financing",
                             "confidence": 0.8,
-                            "evidence": "宣布完成融资",
+                            "evidence": "announced completed financing",
                         }
                     ],
                     "risk_signals": [],
                     "market_implications": [],
                     "needs_human_review": False,
                 },
-                ensure_ascii=False,
             ),
             model="fake",
             provider="fake",
@@ -84,9 +83,9 @@ class WorkflowTest(unittest.TestCase):
                 graph_writer=LocalKnowledgeGraphWriter(root / "graph"),
             )
 
-            result = workflow.run_text("测试生物宣布完成融资。", document_id="doc-1")
+            result = workflow.run_text("TestBio announced completed financing.", document_id="doc-1")
 
-            self.assertEqual(result.insight["summary"], "测试摘要")
+            self.assertEqual(result.insight["summary"], "Test summary")
             self.assertTrue((root / "raw" / "manual" / "doc-1" / "raw.txt").exists())
             self.assertTrue((root / "processed" / "insights.jsonl").exists())
             self.assertTrue((root / "graph" / "nodes.jsonl").exists())

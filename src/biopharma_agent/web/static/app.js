@@ -1,4 +1,4 @@
-const sampleText = `某生物技术公司宣布完成B轮融资，募集资金将用于推进PD-1联合疗法的临床II期研究，并扩展自身免疫疾病管线。公司表示，本轮融资由产业基金和多家投资机构共同参与。分析人士认为，该事件可能改善公司研发资金状况，但临床失败、监管审批和市场竞争仍是主要风险。`;
+const sampleText = `A biotech company announced Series B financing to advance a PD-1 combination therapy through phase 2 and expand an autoimmune pipeline. Strategic and financial investors participated in the round. Analysts said the financing may improve the company's research runway, while clinical failure, regulatory approval, and market competition remain key risks.`;
 
 const state = {
   lastResult: null,
@@ -22,7 +22,7 @@ function setLoading(button, loading) {
   }
   button.disabled = loading;
   button.dataset.originalText ||= button.textContent;
-  button.textContent = loading ? "处理中" : button.dataset.originalText;
+  button.textContent = loading ? "Processing" : button.dataset.originalText;
 }
 
 async function requestJson(path, payload) {
@@ -51,7 +51,7 @@ function renderResult(result) {
   state.lastResult = result;
   $("#result-json").textContent = JSON.stringify(result, null, 2);
   $("#summary-output").textContent =
-    result.summary || result.reason || result.error || "等待分析结果。";
+    result.summary || result.reason || result.error || "Waiting for analysis.";
 
   const sentiment = result.sentiment || {};
   const risk = result.risk || {};
@@ -84,7 +84,7 @@ function renderRecords(containerSelector, records, mode) {
   if (!records.length) {
     const empty = document.createElement("p");
     empty.className = "record-summary";
-    empty.textContent = "暂无记录。";
+    empty.textContent = "No records yet.";
     container.appendChild(empty);
     return;
   }
@@ -100,7 +100,7 @@ function renderRecords(containerSelector, records, mode) {
     title.textContent =
       mode === "feedback"
         ? `${record.decision || "feedback"} · ${record.document_id || "-"}`
-        : raw.title || insight.summary || raw.document_id || "未命名文档";
+        : raw.title || insight.summary || raw.document_id || "Untitled document";
 
     const meta = document.createElement("p");
     meta.className = "record-meta";
@@ -113,8 +113,8 @@ function renderRecords(containerSelector, records, mode) {
     summary.className = "record-summary";
     summary.textContent =
       mode === "feedback"
-        ? record.comment || "无备注"
-        : insight.summary || doc.text || "无摘要";
+        ? record.comment || "No comment"
+        : insight.summary || doc.text || "No summary";
 
     item.append(title, meta, summary);
     item.addEventListener("click", () => {
@@ -131,12 +131,12 @@ function renderDocumentTable(data) {
   const rows = data.items || [];
   const filteredTotal = data.filtered_total ?? data.total ?? rows.length;
   $("#documents-count").textContent =
-    `${rows.length} 条记录 / 筛选 ${filteredTotal} 条 / 全部 ${data.total ?? rows.length} 条`;
+    `${rows.length} records / ${filteredTotal} filtered / ${data.total ?? rows.length} total`;
   state.documentsHasMore = Boolean(data.has_more);
   $("#documents-prev-button").disabled = (data.offset || 0) <= 0;
   $("#documents-next-button").disabled = !state.documentsHasMore;
   $("#documents-page-label").textContent =
-    `第 ${Math.floor((data.offset || 0) / (data.limit || state.documentsLimit)) + 1} 页`;
+    `Page ${Math.floor((data.offset || 0) / (data.limit || state.documentsLimit)) + 1}`;
   updateFacetSelect("#documents-source-filter", data.facets?.sources || []);
   updateFacetSelect("#documents-event-filter", data.facets?.event_types || []);
   updateFacetSelect("#documents-risk-filter", data.facets?.risks || []);
@@ -147,7 +147,7 @@ function renderDocumentTable(data) {
     const tr = document.createElement("tr");
     const td = document.createElement("td");
     td.colSpan = 7;
-    td.textContent = "暂无记录。";
+    td.textContent = "No records yet.";
     tr.appendChild(td);
     body.appendChild(tr);
     renderDocumentDetail(null);
@@ -179,11 +179,11 @@ function renderRunsTable(data) {
   $("#runs-latest-status").textContent = summary.latest_status || "-";
   $("#runs-latest-time").textContent = shortDate(summary.latest_completed_at);
   $("#runs-count").textContent =
-    `${rows.length} 条运行 / 全部 ${data.total ?? rows.length} 条`;
+    `${rows.length} runs / ${data.total ?? rows.length} total`;
   $("#runs-prev-button").disabled = (data.offset || 0) <= 0;
   $("#runs-next-button").disabled = !state.runsHasMore;
   $("#runs-page-label").textContent =
-    `第 ${Math.floor((data.offset || 0) / (data.limit || state.runsLimit)) + 1} 页`;
+    `Page ${Math.floor((data.offset || 0) / (data.limit || state.runsLimit)) + 1}`;
 
   const body = $("#runs-table-body");
   body.innerHTML = "";
@@ -191,10 +191,10 @@ function renderRunsTable(data) {
     const tr = document.createElement("tr");
     const td = document.createElement("td");
     td.colSpan = 6;
-    td.textContent = "暂无运行记录。";
+    td.textContent = "No run records yet.";
     tr.appendChild(td);
     body.appendChild(tr);
-    $("#run-detail").textContent = "选择一条运行后显示详情。";
+    $("#run-detail").textContent = "Select a run to view details.";
     return;
   }
 
@@ -302,7 +302,7 @@ function updateFacetSelect(selector, options) {
   select.innerHTML = "";
   const all = document.createElement("option");
   all.value = "";
-  all.textContent = "全部";
+  all.textContent = "All";
   select.appendChild(all);
   for (const option of options) {
     const element = document.createElement("option");
@@ -323,7 +323,7 @@ function shortDate(value) {
 async function runAnalysis(path, button) {
   const text = $("#document-input").value.trim();
   if (!text) {
-    renderResult({ error: "请输入待分析文本。" });
+    renderResult({ error: "Enter text to analyze." });
     return;
   }
   setLoading(button, true);
@@ -363,14 +363,14 @@ function renderDocumentDetail(detail) {
   if (!detail) {
     const empty = document.createElement("div");
     empty.className = "detail-empty";
-    empty.textContent = "选择一条文档后显示详情。";
+    empty.textContent = "Select a document to view details.";
     container.appendChild(empty);
     return;
   }
   if (detail.loading) {
     const loading = document.createElement("div");
     loading.className = "detail-empty";
-    loading.textContent = "正在加载详情。";
+    loading.textContent = "Loading details.";
     container.appendChild(loading);
     return;
   }
@@ -410,12 +410,12 @@ function renderDocumentDetail(detail) {
     link.href = doc.url;
     link.target = "_blank";
     link.rel = "noreferrer";
-    link.textContent = "打开来源";
+    link.textContent = "Open Source";
     actionWrap.appendChild(link);
   }
   const loadButton = document.createElement("button");
   loadButton.className = "ghost";
-  loadButton.textContent = "载入正文";
+  loadButton.textContent = "Load Body";
   loadButton.addEventListener("click", () => {
     $("#document-input").value = doc.text || doc.text_preview || "";
     activatePanel("document");
@@ -426,12 +426,12 @@ function renderDocumentDetail(detail) {
   const metrics = document.createElement("div");
   metrics.className = "detail-metrics";
   for (const [label, value] of [
-    ["质量", quality.label || "-"],
-    ["字符", String(quality.text_length ?? 0)],
-    ["词数", String(quality.word_count ?? 0)],
-    ["方式", quality.extraction_method || "-"],
-    ["清洗", quality.html_cleaned ? "是" : "否"],
-    ["比例", quality.clean_ratio == null ? "-" : String(quality.clean_ratio)],
+    ["Quality", quality.label || "-"],
+    ["Characters", String(quality.text_length ?? 0)],
+    ["Words", String(quality.word_count ?? 0)],
+    ["Method", quality.extraction_method || "-"],
+    ["Cleaned", quality.html_cleaned ? "yes" : "no"],
+    ["Ratio", quality.clean_ratio == null ? "-" : String(quality.clean_ratio)],
   ]) {
     const metric = document.createElement("article");
     metric.className = "metric compact";
@@ -445,10 +445,10 @@ function renderDocumentDetail(detail) {
 
   const previewTitle = document.createElement("div");
   previewTitle.className = "section-title";
-  previewTitle.textContent = "正文预览";
+  previewTitle.textContent = "Body Preview";
   const preview = document.createElement("pre");
   preview.className = "document-preview";
-  preview.textContent = doc.text_preview || doc.text || "暂无正文。";
+  preview.textContent = doc.text_preview || doc.text || "No body text available.";
 
   container.append(header, metrics, previewTitle, preview);
 }
@@ -484,9 +484,9 @@ async function loadHealthAndConfig() {
   try {
     const health = await fetch("/api/health").then((response) => response.json());
     $("#health-dot").classList.toggle("ok", health.status === "ok");
-    $("#health-text").textContent = health.status === "ok" ? "本地服务在线" : "服务异常";
+    $("#health-text").textContent = health.status === "ok" ? "Local service online" : "Service warning";
   } catch {
-    $("#health-text").textContent = "服务离线";
+    $("#health-text").textContent = "Service offline";
   }
 
   try {
@@ -494,9 +494,9 @@ async function loadHealthAndConfig() {
     $("#config-provider").textContent = config.provider;
     $("#config-model").textContent = config.model;
     $("#config-base-url").textContent = config.base_url;
-    $("#config-api-key").textContent = config.has_api_key ? "已配置" : "未配置";
+    $("#config-api-key").textContent = config.has_api_key ? "Configured" : "Missing";
   } catch {
-    $("#config-provider").textContent = "无法读取";
+    $("#config-provider").textContent = "Unavailable";
   }
 
   await loadSources();
