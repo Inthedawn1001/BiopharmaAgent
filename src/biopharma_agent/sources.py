@@ -108,6 +108,17 @@ DEFAULT_FEED_SOURCES: list[SourceRef] = [
         poll_interval_minutes=30,
     ),
     feed_source(
+        name="mhra_drug_device_alerts",
+        kind="regulatory_feed",
+        url="https://www.gov.uk/drug-device-alerts.atom",
+        region="UK",
+        authority="MHRA",
+        category="safety_alert",
+        priority=16,
+        poll_interval_minutes=30,
+        notes="Official GOV.UK Atom feed for MHRA medicine and medical-device alerts, recalls, and safety information.",
+    ),
+    feed_source(
         name="ema_news",
         kind="regulatory_feed",
         url="https://www.ema.europa.eu/en/news.xml",

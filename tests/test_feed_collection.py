@@ -26,6 +26,21 @@ RSS_FIXTURE = """<?xml version="1.0" encoding="utf-8"?>
 </rss>
 """
 
+ATOM_FIXTURE = """<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <id>tag:www.gov.uk,2005:/drug-device-alerts</id>
+  <title>Alerts, recalls and safety information: medicines and medical devices</title>
+  <updated>2026-04-30T17:08:36+01:00</updated>
+  <entry>
+    <id>tag:www.gov.uk,2005:/drug-device-alerts/mhra-safety-roundup-april-2026</id>
+    <updated>2026-04-29T14:02:41+01:00</updated>
+    <link rel="alternate" type="text/html" href="https://www.gov.uk/drug-device-alerts/mhra-safety-roundup-april-2026"/>
+    <title>MHRA Safety Roundup: April 2026</title>
+    <summary type="html">Summary of the latest safety advice for medicines and medical device users</summary>
+  </entry>
+</feed>
+"""
+
 
 class FakeFeedTransport:
     def get(self, url, headers, timeout):
@@ -43,6 +58,15 @@ class FeedCollectionTest(unittest.TestCase):
         self.assertEqual(len(items), 1)
         self.assertEqual(items[0].title, "FDA approves test therapy")
         self.assertEqual(items[0].summary, "Approval details")
+
+    def test_parse_atom(self):
+        items = parse_feed(ATOM_FIXTURE)
+
+        self.assertEqual(len(items), 1)
+        self.assertEqual(items[0].title, "MHRA Safety Roundup: April 2026")
+        self.assertEqual(items[0].published, "2026-04-29T14:02:41+01:00")
+        self.assertEqual(items[0].guid, "tag:www.gov.uk,2005:/drug-device-alerts/mhra-safety-roundup-april-2026")
+        self.assertEqual(items[0].link, "https://www.gov.uk/drug-device-alerts/mhra-safety-roundup-april-2026")
 
     def test_feed_fetcher_to_raw_documents(self):
         source = SourceRef(name="test_feed", kind="regulatory_feed", url="https://example.test/rss")
@@ -97,6 +121,16 @@ class FeedCollectionTest(unittest.TestCase):
         priorities = [int(source.metadata["priority"]) for source in list_default_sources()]
         self.assertEqual(priorities, sorted(priorities))
         self.assertEqual(get_default_source("biospace_business").metadata["publisher"], "BioSpace")
+
+    def test_mhra_drug_device_alerts_source_metadata(self):
+        source = get_default_source("mhra_drug_device_alerts")
+
+        self.assertEqual(source.kind, "regulatory_feed")
+        self.assertEqual(source.url, "https://www.gov.uk/drug-device-alerts.atom")
+        self.assertEqual(source.metadata["authority"], "MHRA")
+        self.assertEqual(source.metadata["region"], "UK")
+        self.assertEqual(source.metadata["category"], "safety_alert")
+        self.assertTrue(source.metadata.get("enabled", True))
 
     def test_fetch_summary_includes_source_metadata_and_respects_delay(self):
         source = SourceRef(
