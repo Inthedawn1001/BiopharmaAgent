@@ -10,4 +10,14 @@ export BIOPHARMA_RAW_ARCHIVE_S3_REGION="${BIOPHARMA_RAW_ARCHIVE_S3_REGION:-us-ea
 export BIOPHARMA_RAW_ARCHIVE_S3_ACCESS_KEY_ID="${BIOPHARMA_RAW_ARCHIVE_S3_ACCESS_KEY_ID:-minioadmin}"
 export BIOPHARMA_RAW_ARCHIVE_S3_SECRET_ACCESS_KEY="${BIOPHARMA_RAW_ARCHIVE_S3_SECRET_ACCESS_KEY:-minioadmin}"
 
-python3 scripts/s3_archive_smoke.py
+if [[ -z "${PYTHON:-}" ]]; then
+  if [[ -n "${VIRTUAL_ENV:-}" && -x "${VIRTUAL_ENV}/bin/python" ]]; then
+    PYTHON="${VIRTUAL_ENV}/bin/python"
+  elif [[ -x ".venv/bin/python" ]]; then
+    PYTHON=".venv/bin/python"
+  else
+    PYTHON="python3"
+  fi
+fi
+
+"${PYTHON}" scripts/s3_archive_smoke.py

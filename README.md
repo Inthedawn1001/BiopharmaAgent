@@ -64,6 +64,13 @@ export BIOPHARMA_LLM_API_KEY=...
 PYTHONPATH=src python3 -m biopharma_agent.cli llm-check
 ```
 
+Infrastructure smoke tests can use the deterministic local provider without an external API key:
+
+```bash
+export BIOPHARMA_LLM_PROVIDER=smoke
+export BIOPHARMA_LLM_MODEL=smoke-model
+```
+
 Run a local end-to-end workflow that archives raw text and writes structured results to JSONL:
 
 ```bash
@@ -176,11 +183,15 @@ python3 -m pip install "psycopg[binary]>=3" "boto3>=1.34"
 scripts/run_full_stack_smoke.sh
 ```
 
+`run_full_stack_smoke.sh` starts or reuses PostgreSQL and MinIO, applies the PostgreSQL migration, verifies SQL storage and S3-compatible raw archiving, fetches one real FDA press-release item, runs deterministic smoke-provider analysis, asserts a PostgreSQL insight row exists, and verifies the MinIO raw object with `head_object`. Set `PYTHON=/path/to/python` to choose the runtime; otherwise the script prefers the active virtualenv, then `.venv/bin/python`, then `python3`.
+
 Airflow DAG smoke uses the Docker Compose profile to start the official Airflow image and run the `biopharma_fetch_sources` DAG:
 
 ```bash
 scripts/run_airflow_smoke.sh
 ```
+
+The Airflow smoke validates DAG import, executes `biopharma_fetch_sources` once, checks that the latest run log entry succeeded, and asserts at least one document was selected.
 
 Start the local web workbench:
 
@@ -205,3 +216,12 @@ Then visit `http://127.0.0.1:8765`. The workbench includes document analysis, do
 - Airflow orchestration wrapper: [infra/airflow/README.md](infra/airflow/README.md)
 - Web workbench: [src/biopharma_agent/web/server.py](src/biopharma_agent/web/server.py)
 - Execution plan: [docs/execution_plan.md](docs/execution_plan.md)
+
+## Verification Snapshot
+
+Latest local verification on May 1, 2026:
+
+- Unit tests: `PYTHONPATH=src python -m unittest discover -s tests` -> 84 passed, 1 skipped
+- Full-stack smoke: `scripts/run_full_stack_smoke.sh` -> PostgreSQL migration checked, MinIO raw object verified, FDA real collection selected 1 document and analyzed 1 document
+- Airflow smoke: `scripts/run_airflow_smoke.sh` -> DAG loaded and latest run log entry succeeded with 1 selected document
+- Content hygiene: tracked files contain no Chinese text, real host name, real local user name, or committed API key

@@ -11,6 +11,7 @@ from biopharma_agent.llm.providers import (
     GeminiProvider,
     OllamaProvider,
     OpenAICompatibleProvider,
+    SmokeProvider,
 )
 
 
@@ -35,9 +36,10 @@ def create_llm_provider(
         return GeminiProvider(**kwargs)
     if provider == "ollama":
         return OllamaProvider(**kwargs)
+    if provider == "smoke":
+        return SmokeProvider(model=settings.model or "smoke-model")
 
     raise LLMConfigurationError(
         f"Unsupported LLM provider '{settings.provider}'. "
-        "Expected one of: openai, custom, anthropic, gemini, ollama."
+        "Expected one of: openai, custom, anthropic, gemini, ollama, smoke."
     )
-

@@ -17,6 +17,9 @@ export BIOPHARMA_RAW_ARCHIVE_S3_SECRET_ACCESS_KEY=minioadmin
 scripts/run_minio_smoke.sh
 ```
 
+The smoke scripts use `PYTHON` when it is set; otherwise they prefer the active
+virtualenv, then `.venv/bin/python`, then `python3`.
+
 The MinIO console is available at `http://127.0.0.1:9001` with the credentials
 above.
 

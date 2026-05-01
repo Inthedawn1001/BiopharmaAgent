@@ -25,8 +25,9 @@ def run_fetch_sources() -> None:
     sources = os.getenv("BIOPHARMA_AIRFLOW_SOURCES", "").split()
     limit = os.getenv("BIOPHARMA_AIRFLOW_LIMIT", "3")
     run_log = os.getenv("BIOPHARMA_AIRFLOW_RUN_LOG", "data/runs/airflow_fetch_runs.jsonl")
+    python_executable = os.getenv("BIOPHARMA_AIRFLOW_PYTHON", "python3")
     command = [
-        "python3",
+        python_executable,
         "-m",
         "biopharma_agent.cli",
         "scheduled-fetch",

@@ -28,6 +28,7 @@ BIOPHARMA_AIRFLOW_LIMIT=2
 BIOPHARMA_AIRFLOW_ANALYZE=0
 BIOPHARMA_AIRFLOW_SCHEDULE="0 * * * *"
 BIOPHARMA_AIRFLOW_RUN_LOG=data/runs/airflow_fetch_runs.jsonl
+BIOPHARMA_AIRFLOW_PYTHON=python3
 ```
 
 The DAG intentionally shells out to the CLI. That keeps Airflow thin and avoids
@@ -45,4 +46,6 @@ scripts/run_airflow_smoke.sh
 By default this smoke uses `fda_press_releases`, `limit=1`, and `analyze=0` so it
 does not require an LLM key. Set `BIOPHARMA_AIRFLOW_ANALYZE=1` and normal
 `BIOPHARMA_LLM_*` variables if you want the Airflow run to perform real LLM
-analysis.
+analysis. The smoke script validates that the latest run log entry succeeded and
+selected at least one source document. Set `PYTHON=/path/to/python` when the
+host-side post-check should use a specific virtualenv.

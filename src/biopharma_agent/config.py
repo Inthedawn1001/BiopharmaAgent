@@ -29,6 +29,7 @@ class LLMSettings:
             "gemini": "https://generativelanguage.googleapis.com/v1beta",
             "ollama": "http://localhost:11434",
             "custom": "http://localhost:8000/v1",
+            "smoke": "local://smoke",
         }.get(provider, "http://localhost:8000/v1")
 
         return cls(

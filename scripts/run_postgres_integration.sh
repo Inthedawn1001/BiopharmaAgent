@@ -5,6 +5,16 @@ export BIOPHARMA_POSTGRES_DSN="${BIOPHARMA_POSTGRES_DSN:-postgresql://biopharma:
 export BIOPHARMA_RUN_POSTGRES_TESTS=1
 export PYTHONPATH="src${PYTHONPATH:+:${PYTHONPATH}}"
 
-python3 -m biopharma_agent.cli migrate-postgres
-python3 -m unittest tests.test_postgres_integration
-python3 scripts/postgres_smoke.py
+if [[ -z "${PYTHON:-}" ]]; then
+  if [[ -n "${VIRTUAL_ENV:-}" && -x "${VIRTUAL_ENV}/bin/python" ]]; then
+    PYTHON="${VIRTUAL_ENV}/bin/python"
+  elif [[ -x ".venv/bin/python" ]]; then
+    PYTHON=".venv/bin/python"
+  else
+    PYTHON="python3"
+  fi
+fi
+
+"${PYTHON}" -m biopharma_agent.cli migrate-postgres
+"${PYTHON}" -m unittest tests.test_postgres_integration
+"${PYTHON}" scripts/postgres_smoke.py

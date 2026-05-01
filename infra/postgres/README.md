@@ -36,6 +36,9 @@ The Python runtime needs `psycopg` when the PostgreSQL backend is selected:
 python3 -m pip install "psycopg[binary]>=3"
 ```
 
+The smoke scripts use `PYTHON` when it is set; otherwise they prefer the active
+virtualenv, then `.venv/bin/python`, then `python3`.
+
 JSONL remains available with:
 
 ```bash

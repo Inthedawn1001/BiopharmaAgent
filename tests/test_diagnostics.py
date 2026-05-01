@@ -39,6 +39,21 @@ class DiagnosticsTest(unittest.TestCase):
             self.assertEqual(data["checks"]["llm"]["status"], "warning")
             self.assertIn("BIOPHARMA_LLM_API_KEY", data["checks"]["llm"]["issues"][0])
 
+    def test_diagnostics_accepts_smoke_provider_without_key(self):
+        with tempfile.TemporaryDirectory(dir=Path.cwd()) as temp_dir, patch.dict(
+            os.environ,
+            {
+                "BIOPHARMA_LLM_PROVIDER": "smoke",
+                "BIOPHARMA_LLM_API_KEY": "",
+                "BIOPHARMA_LLM_MODEL": "smoke-model",
+            },
+            clear=False,
+        ):
+            data = diagnose_environment(temp_dir)
+
+            self.assertEqual(data["checks"]["llm"]["status"], "ok")
+            self.assertFalse(data["checks"]["llm"]["api_key_required"])
+
     def test_api_diagnostics_returns_source_counts(self):
         data = api.diagnostics()
 

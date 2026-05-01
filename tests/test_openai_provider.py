@@ -1,8 +1,10 @@
 import unittest
 
 from biopharma_agent.config import LLMSettings
+from biopharma_agent.llm.factory import create_llm_provider
 from biopharma_agent.llm.errors import LLMHTTPError
 from biopharma_agent.llm.providers.openai_compatible import OpenAICompatibleProvider
+from biopharma_agent.llm.providers.smoke import SmokeProvider
 from biopharma_agent.llm.types import ChatMessage, EmbeddingRequest, LLMRequest, StructuredOutputRequest
 
 
@@ -123,6 +125,34 @@ class OpenAICompatibleProviderTest(unittest.TestCase):
 
         self.assertEqual(response.vectors, [[0.1, 0.2]])
         self.assertEqual(transport.calls[0]["url"], "https://example.test/v1/embeddings")
+
+
+class SmokeProviderTest(unittest.TestCase):
+    def test_factory_creates_smoke_provider(self):
+        provider = create_llm_provider(
+            LLMSettings(
+                provider="smoke",
+                base_url="local://smoke",
+                api_key=None,
+                model="smoke-model",
+            )
+        )
+
+        self.assertIsInstance(provider, SmokeProvider)
+
+    def test_smoke_provider_returns_schema_compatible_json(self):
+        provider = SmokeProvider()
+
+        response = provider.structured(
+            StructuredOutputRequest(
+                messages=[ChatMessage(role="user", content="FDA issued a regulatory update.")],
+                json_schema={"type": "object"},
+            )
+        )
+
+        self.assertIn('"summary"', response.text)
+        self.assertEqual(response.provider, "smoke")
+        self.assertEqual(provider.embed(EmbeddingRequest(inputs=["a", "b"])).vectors, [[0.0], [0.0]])
 
 
 if __name__ == "__main__":
