@@ -197,6 +197,8 @@ def state_summary(path: Path | str, sources: list[SourceRef] | None = None) -> d
     items = [records_by_name[name] for name in sorted(records_by_name)]
     return {
         "path": str(Path(path)),
+        "backend": "jsonl",
+        "generated_at": _isoformat(utc_now()),
         "items": items,
         "count": len(items),
         "summary": _summary(items),
@@ -208,6 +210,7 @@ def source_state_summary(
     *,
     sources: list[SourceRef] | None = None,
     path: str = "",
+    backend: str = "jsonl",
 ) -> dict[str, Any]:
     records_by_name = {record["source"]: record for record in store.list_records()}
     if sources is not None:
@@ -216,6 +219,8 @@ def source_state_summary(
     items = [records_by_name[name] for name in sorted(records_by_name)]
     return {
         "path": path,
+        "backend": backend,
+        "generated_at": _isoformat(utc_now()),
         "items": items,
         "count": len(items),
         "summary": _summary(items),
@@ -250,12 +255,21 @@ def _summary(items: list[dict[str, Any]]) -> dict[str, Any]:
     failed = sum(1 for item in items if item.get("last_status") == "failed")
     never_run = sum(1 for item in items if item.get("last_status") == "never_run")
     latest = max((str(item.get("last_completed_at", "")) for item in items), default="")
+    total_selected = sum(int(item.get("last_selected", 0) or 0) for item in items)
+    total_analyzed = sum(int(item.get("last_analyzed", 0) or 0) for item in items)
+    total_skipped = sum(int(item.get("last_skipped_seen", 0) or 0) for item in items)
+    total_seen = sum(int(item.get("seen_count", 0) or 0) for item in items)
     return {
         "success": success,
         "failed": failed,
         "never_run": never_run,
+        "active": success + failed,
         "latest_completed_at": latest,
-        "seen_documents": sum(int(item.get("seen_count", 0) or 0) for item in items),
+        "seen_documents": total_seen,
+        "last_selected": total_selected,
+        "last_analyzed": total_analyzed,
+        "last_skipped_seen": total_skipped,
+        "health_ratio": round(success / max(1, success + failed), 4),
     }
 
 

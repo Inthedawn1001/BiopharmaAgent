@@ -202,6 +202,45 @@
               </div>
               <button id="load-source-state-button" class="secondary">Refresh Source Health</button>
             </div>
+            <div class="source-health-summary">
+              <article class="metric compact">
+                <span>Backend</span>
+                <strong id="source-state-backend">-</strong>
+              </article>
+              <article class="metric compact">
+                <span>Health</span>
+                <strong id="source-state-health">-</strong>
+              </article>
+              <article class="metric compact">
+                <span>Selected</span>
+                <strong id="source-state-selected">0</strong>
+              </article>
+              <article class="metric compact">
+                <span>Skipped</span>
+                <strong id="source-state-skipped">0</strong>
+              </article>
+            </div>
+            <div class="source-health-filters">
+              <label>
+                Status
+                <select id="source-state-status-filter">
+                  <option value="">All</option>
+                  <option value="success">Success</option>
+                  <option value="failed">Failed</option>
+                  <option value="never_run">Never run</option>
+                </select>
+              </label>
+              <label>
+                Collector
+                <select id="source-state-collector-filter">
+                  <option value="">All</option>
+                </select>
+              </label>
+              <label>
+                Search
+                <input id="source-state-query" placeholder="Source or category" />
+              </label>
+            </div>
             <div class="table-wrap">
               <table class="data-table source-state-table">
                 <thead>
@@ -218,6 +257,7 @@
                 <tbody id="source-state-table-body"></tbody>
               </table>
             </div>
+            <pre id="source-state-detail" class="json-view compact">Select a source to view health details.</pre>
           </div>
           <div class="inbox-toolbar">
             <label>
@@ -242,6 +282,18 @@
             <article class="metric compact">
               <span>Latest Completion</span>
               <strong id="runs-latest-time">-</strong>
+            </article>
+            <article class="metric compact">
+              <span>Selected</span>
+              <strong id="runs-selected">0</strong>
+            </article>
+            <article class="metric compact">
+              <span>Analyzed</span>
+              <strong id="runs-analyzed">0</strong>
+            </article>
+            <article class="metric compact">
+              <span>Skipped</span>
+              <strong id="runs-skipped">0</strong>
             </article>
           </div>
           <div id="runs-count" class="table-count">0 runs</div>

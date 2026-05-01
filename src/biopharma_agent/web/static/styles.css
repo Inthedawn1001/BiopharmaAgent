@@ -214,6 +214,26 @@ button.ghost {
   align-items: center;
 }
 
+.source-health-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin: 12px 0;
+}
+
+.source-health-filters {
+  display: flex;
+  align-items: end;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.source-health-filters label {
+  flex: 1 1 220px;
+  margin-bottom: 0;
+}
+
 .inline-check {
   display: inline-flex;
   align-items: center;
@@ -472,7 +492,7 @@ textarea {
 
 .run-summary-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 10px;
   margin-bottom: 14px;
 }

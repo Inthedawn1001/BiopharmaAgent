@@ -69,6 +69,8 @@ class SourceStateTest(unittest.TestCase):
             self.assertEqual(data["count"], 1)
             self.assertEqual(data["items"][0]["last_status"], "never_run")
             self.assertEqual(data["summary"]["never_run"], 1)
+            self.assertEqual(data["backend"], "jsonl")
+            self.assertEqual(data["summary"]["health_ratio"], 0.0)
 
 
 def _fixed_time():

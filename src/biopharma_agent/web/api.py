@@ -73,7 +73,12 @@ def list_source_state(path: str | Path = "data/runs/source_state.json") -> dict[
     settings = AgentSettings.from_env().storage
     state_path = _safe_workspace_path(path) if settings.backend == "jsonl" else Path("postgres")
     store = create_source_state_store(settings, path=state_path)
-    return source_state_summary(store, sources=list_default_sources(), path=str(state_path))
+    return source_state_summary(
+        store,
+        sources=list_default_sources(),
+        path=str(state_path),
+        backend=settings.backend,
+    )
 
 
 def analyze_deterministic(payload: dict[str, Any]) -> dict[str, Any]:

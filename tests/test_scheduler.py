@@ -63,6 +63,32 @@ class SchedulerTest(unittest.TestCase):
             self.assertEqual(page["items"][0]["status"], "failed")
             self.assertEqual(page["summary"]["success"], 1)
             self.assertEqual(page["summary"]["failed"], 1)
+            self.assertEqual(page["summary"]["selected"], 0)
+
+    def test_run_log_summary_includes_collection_totals(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "runs.jsonl"
+            rows = [
+                {
+                    "job_name": "fetch-sources",
+                    "run_id": "run-1",
+                    "status": "success",
+                    "started_at": "2026-04-30T00:00:00+00:00",
+                    "completed_at": "2026-04-30T00:00:01+00:00",
+                    "duration_seconds": 1,
+                    "result": [
+                        {"source": "fda", "selected": 2, "analyzed": 1, "skipped_seen": 3},
+                        {"source": "sec", "selected": 1, "analyzed": 0, "skipped_seen": 0},
+                    ],
+                }
+            ]
+            path.write_text("\n".join(__import__("json").dumps(row) for row in rows) + "\n")
+
+            page = LocalRunLog(path).list_records_page()
+
+            self.assertEqual(page["summary"]["selected"], 3)
+            self.assertEqual(page["summary"]["analyzed"], 1)
+            self.assertEqual(page["summary"]["skipped_seen"], 3)
 
 
 def _fixed_clock():

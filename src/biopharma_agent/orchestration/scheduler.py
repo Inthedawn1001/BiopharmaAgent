@@ -179,9 +179,18 @@ def _run_summary(records: list[dict[str, Any]]) -> dict[str, Any]:
     success_count = sum(1 for record in records if record.get("status") == "success")
     failed_count = sum(1 for record in records if record.get("status") == "failed")
     latest = records[-1] if records else {}
+    result_rows: list[dict[str, Any]] = []
+    for record in records:
+        result = record.get("result")
+        if not isinstance(result, list):
+            continue
+        result_rows.extend(item for item in result if isinstance(item, dict))
     return {
         "success": success_count,
         "failed": failed_count,
         "latest_status": latest.get("status", ""),
         "latest_completed_at": latest.get("completed_at", ""),
+        "selected": sum(int(item.get("selected") or 0) for item in result_rows),
+        "analyzed": sum(int(item.get("analyzed") or 0) for item in result_rows),
+        "skipped_seen": sum(int(item.get("skipped_seen") or 0) for item in result_rows),
     }

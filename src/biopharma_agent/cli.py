@@ -350,7 +350,12 @@ def main(argv: list[str] | None = None) -> int:
         state_path = str(args.state_path) if storage_settings.backend == "jsonl" else "postgres"
         print(
             json.dumps(
-                source_state_summary(store, sources=list_default_sources(), path=state_path),
+                source_state_summary(
+                    store,
+                    sources=list_default_sources(),
+                    path=state_path,
+                    backend=storage_settings.backend,
+                ),
                 ensure_ascii=False,
                 indent=2,
             )

@@ -16,6 +16,8 @@ class WebApiTest(unittest.TestCase):
         body = (STATIC_DIR / "index.html").read_text(encoding="utf-8")
 
         self.assertIn("Biopharma Agent Workbench", body)
+        self.assertIn("source-state-status-filter", body)
+        self.assertIn("source-state-detail", body)
 
     def test_deterministic_analysis(self):
         data = api.analyze_deterministic(
@@ -199,6 +201,9 @@ class WebApiTest(unittest.TestCase):
             names = {item["source"]: item for item in data["items"]}
             self.assertIn("fda_press_releases", names)
             self.assertEqual(names["fda_press_releases"]["last_status"], "never_run")
+            self.assertEqual(data["backend"], "jsonl")
+            self.assertIn("generated_at", data)
+            self.assertIn("health_ratio", data["summary"])
 
     def test_list_source_state_uses_postgres_backend(self):
         with patch.dict(
@@ -223,6 +228,7 @@ class WebApiTest(unittest.TestCase):
             data = api.list_source_state("/private/tmp/outside.json")
 
             self.assertEqual(data["path"], "postgres")
+            self.assertEqual(data["backend"], "postgres")
             self.assertEqual(data["summary"]["success"], 1)
             factory.assert_called_once()
 

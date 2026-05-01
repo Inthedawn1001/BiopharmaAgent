@@ -12,6 +12,7 @@ const state = {
   runsHasMore: false,
   sources: [],
   sourceState: [],
+  sourceStateData: null,
 };
 
 const $ = (selector) => document.querySelector(selector);
@@ -179,6 +180,9 @@ function renderRunsTable(data) {
   $("#runs-failed").textContent = String(summary.failed ?? 0);
   $("#runs-latest-status").textContent = summary.latest_status || "-";
   $("#runs-latest-time").textContent = shortDate(summary.latest_completed_at);
+  $("#runs-selected").textContent = String(summary.selected ?? 0);
+  $("#runs-analyzed").textContent = String(summary.analyzed ?? 0);
+  $("#runs-skipped").textContent = String(summary.skipped_seen ?? 0);
   $("#runs-count").textContent =
     `${rows.length} runs / ${data.total ?? rows.length} total`;
   $("#runs-prev-button").disabled = (data.offset || 0) <= 0;
@@ -219,23 +223,30 @@ function renderRunsTable(data) {
 function renderSourceState(data) {
   const rows = data.items || [];
   state.sourceState = rows;
+  state.sourceStateData = data;
   const summary = data.summary || {};
+  const filteredRows = filterSourceStateRows(rows);
   $("#source-state-count").textContent =
-    `${rows.length} sources · ${summary.success ?? 0} healthy · ${summary.failed ?? 0} failed · ${summary.seen_documents ?? 0} seen documents`;
+    `${filteredRows.length} visible / ${rows.length} sources · ${summary.success ?? 0} healthy · ${summary.failed ?? 0} failed · ${summary.seen_documents ?? 0} seen documents`;
+  $("#source-state-backend").textContent = data.backend || "-";
+  $("#source-state-health").textContent = `${Math.round(Number(summary.health_ratio || 0) * 100)}%`;
+  $("#source-state-selected").textContent = String(summary.last_selected ?? 0);
+  $("#source-state-skipped").textContent = String(summary.last_skipped_seen ?? 0);
+  updateSourceStateCollectorFilter(rows);
 
   const body = $("#source-state-table-body");
   body.innerHTML = "";
-  if (!rows.length) {
+  if (!filteredRows.length) {
     const tr = document.createElement("tr");
     const td = document.createElement("td");
     td.colSpan = 7;
-    td.textContent = "No source state yet.";
+    td.textContent = rows.length ? "No sources match the current filters." : "No source state yet.";
     tr.appendChild(td);
     body.appendChild(tr);
     return;
   }
 
-  for (const row of rows) {
+  for (const row of filteredRows) {
     const tr = document.createElement("tr");
     tr.appendChild(sourceStateNameCell(row));
     tr.appendChild(statusCell(row.last_status || "never_run"));
@@ -244,8 +255,54 @@ function renderSourceState(data) {
     tr.appendChild(textCell(String(row.last_analyzed ?? 0)));
     tr.appendChild(textCell(String(row.last_skipped_seen ?? 0)));
     tr.appendChild(textCell(shortDate(row.last_completed_at || row.updated_at)));
+    tr.addEventListener("click", () => {
+      $$("#source-state-table-body tr").forEach((item) => item.classList.remove("selected"));
+      tr.classList.add("selected");
+      $("#source-state-detail").textContent = JSON.stringify(row, null, 2);
+    });
     body.appendChild(tr);
   }
+}
+
+function filterSourceStateRows(rows) {
+  const status = $("#source-state-status-filter")?.value || "";
+  const collector = $("#source-state-collector-filter")?.value || "";
+  const query = ($("#source-state-query")?.value || "").trim().toLowerCase();
+  return rows.filter((row) => {
+    if (status && row.last_status !== status) {
+      return false;
+    }
+    if (collector && row.collector !== collector) {
+      return false;
+    }
+    if (!query) {
+      return true;
+    }
+    return [row.source, row.category, row.kind, row.collector]
+      .filter(Boolean)
+      .some((value) => String(value).toLowerCase().includes(query));
+  });
+}
+
+function updateSourceStateCollectorFilter(rows) {
+  const select = $("#source-state-collector-filter");
+  if (!select) {
+    return;
+  }
+  const current = select.value;
+  const collectors = Array.from(new Set(rows.map((row) => row.collector || "feed"))).sort();
+  select.innerHTML = "";
+  const all = document.createElement("option");
+  all.value = "";
+  all.textContent = "All";
+  select.appendChild(all);
+  for (const collector of collectors) {
+    const option = document.createElement("option");
+    option.value = collector;
+    option.textContent = collector;
+    select.appendChild(option);
+  }
+  select.value = collectors.includes(current) ? current : "";
 }
 
 function sourceStateNameCell(row) {
@@ -890,6 +947,21 @@ function wireActions() {
       setLoading(button, false);
     }
   });
+  $("#source-state-status-filter").addEventListener("change", () => {
+    if (state.sourceStateData) {
+      renderSourceState(state.sourceStateData);
+    }
+  });
+  $("#source-state-collector-filter").addEventListener("change", () => {
+    if (state.sourceStateData) {
+      renderSourceState(state.sourceStateData);
+    }
+  });
+  $("#source-state-query").addEventListener("input", debounce(() => {
+    if (state.sourceStateData) {
+      renderSourceState(state.sourceStateData);
+    }
+  }, 200));
 }
 
 async function loadDocuments() {
