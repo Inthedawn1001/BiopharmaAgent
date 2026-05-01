@@ -62,6 +62,13 @@ class WorkbenchRequestHandler(BaseHTTPRequestHandler):
             )
             return
 
+        if parsed.path == "/api/intelligence-brief":
+            query = parse_qs(parsed.query)
+            path = query.get("path", ["data/processed/insights.jsonl"])[0]
+            limit = int(query.get("limit", ["100"])[0])
+            self._write_json(api.intelligence_brief(path, limit=limit))
+            return
+
         if parsed.path.startswith("/api/documents/"):
             query = parse_qs(parsed.query)
             path = query.get("path", ["data/processed/insights.jsonl"])[0]

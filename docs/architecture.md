@@ -14,6 +14,12 @@ The LLM layer is intentionally separate. It can be used by parsing, analysis,
 agent planning, QA, and human-review workflows without tying the rest of the
 system to one model vendor.
 
+Cross-document intelligence briefs sit above the repository boundary. They read
+stored analysis records and summarize event mix, risk mix, sources, key terms,
+key developments, and risk watchlists without requiring another external model
+call. This gives the workbench a first complete loop from collection to
+portfolio-level intelligence.
+
 ## Source Catalog
 
 Feed sources are stored as `SourceRef` entries with operational metadata:

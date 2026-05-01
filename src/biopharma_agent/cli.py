@@ -10,6 +10,7 @@ from pathlib import Path
 from dataclasses import asdict
 
 from biopharma_agent.agent.planner import LLMTaskPlanner
+from biopharma_agent.analytics.brief import IntelligenceBriefBuilder
 from biopharma_agent.analytics.report import DeterministicTextAnalytics
 from biopharma_agent.analytics.timeseries import TimeSeriesAnalyzer
 from biopharma_agent.analysis.pipeline import BiopharmaAnalysisPipeline
@@ -93,6 +94,11 @@ def main(argv: list[str] | None = None) -> int:
         help="Summarize numeric market series, e.g. prices or financing amounts.",
     )
     timeseries.add_argument("values", nargs="+", type=float)
+
+    brief = subparsers.add_parser("intelligence-brief", help="Summarize stored analysis results.")
+    brief.add_argument("--input", type=Path, default=Path("data/processed/insights.jsonl"))
+    brief.add_argument("--limit", type=int, default=100)
+    brief.add_argument("--json", action="store_true", help="Print JSON instead of Markdown.")
 
     feedback = subparsers.add_parser("feedback", help="Append a human review feedback record.")
     feedback.add_argument("--document-id", required=True)
@@ -375,6 +381,15 @@ def main(argv: list[str] | None = None) -> int:
         )
         runs = LocalRunLog(args.run_log).list_records_page(limit=5, offset=0)
         report = build_source_health_report(state, runs)
+        if args.json:
+            print(json.dumps(report, ensure_ascii=False, indent=2))
+        else:
+            print(report["markdown"])
+        return 0
+
+    if args.command == "intelligence-brief":
+        repository = LocalAnalysisRepository(args.input)
+        report = IntelligenceBriefBuilder().build(repository.list_records(limit=args.limit), limit=args.limit)
         if args.json:
             print(json.dumps(report, ensure_ascii=False, indent=2))
         else:

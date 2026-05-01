@@ -360,6 +360,20 @@
         </section>
 
         <section class="panel" id="panel-market">
+          <div class="inbox-toolbar">
+            <label>
+              Analysis File
+              <input id="brief-path" value="data/processed/insights.jsonl" />
+            </label>
+            <label>
+              Documents
+              <input id="brief-limit" type="number" min="1" max="500" value="100" />
+            </label>
+            <button id="brief-button">Generate Brief</button>
+          </div>
+          <div id="brief-summary-grid" class="metric-grid"></div>
+          <pre id="brief-output" class="json-view compact report-view">Generate a brief to view Markdown.</pre>
+          <div class="section-title">Market Series</div>
           <label for="series-input">Numeric Series</label>
           <input id="series-input" value="1, 2, 3, 100" />
           <button id="series-button">Analyze Trend</button>

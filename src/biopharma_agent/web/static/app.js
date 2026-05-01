@@ -301,6 +301,32 @@ function renderSourceAlerts(alerts) {
   }
 }
 
+function renderBrief(brief) {
+  $("#brief-output").textContent = brief.markdown || JSON.stringify(brief, null, 2);
+  const summary = brief.summary || "";
+  const grid = $("#brief-summary-grid");
+  grid.innerHTML = "";
+  const topRisk = (brief.risk_counts || [])[0]?.name || "-";
+  const topEvent = (brief.event_counts || [])[0]?.name || "-";
+  const topSource = (brief.source_counts || [])[0]?.name || "-";
+  for (const [label, value] of [
+    ["Documents", String(brief.document_count ?? 0)],
+    ["Top Event", topEvent],
+    ["Top Risk", topRisk],
+    ["Top Source", topSource],
+    ["Summary", summary],
+  ]) {
+    const card = document.createElement("article");
+    card.className = "metric compact";
+    const span = document.createElement("span");
+    span.textContent = label;
+    const strong = document.createElement("strong");
+    strong.textContent = value;
+    card.append(span, strong);
+    grid.appendChild(card);
+  }
+}
+
 function filterSourceStateRows(rows) {
   const status = $("#source-state-status-filter")?.value || "";
   const collector = $("#source-state-collector-filter")?.value || "";
@@ -844,6 +870,21 @@ function wireActions() {
       );
     } catch (error) {
       $("#series-output").textContent = JSON.stringify({ error: error.message }, null, 2);
+    } finally {
+      setLoading(button, false);
+    }
+  });
+  $("#brief-button").addEventListener("click", async (event) => {
+    const button = event.currentTarget;
+    setLoading(button, true);
+    try {
+      const params = new URLSearchParams({
+        path: $("#brief-path").value,
+        limit: $("#brief-limit").value,
+      });
+      renderBrief(await getJson(`/api/intelligence-brief?${params.toString()}`));
+    } catch (error) {
+      $("#brief-output").textContent = `Brief failed: ${error.message}`;
     } finally {
       setLoading(button, false);
     }

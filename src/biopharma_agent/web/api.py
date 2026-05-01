@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from biopharma_agent.agent.planner import LLMTaskPlanner
+from biopharma_agent.analytics.brief import IntelligenceBriefBuilder
 from biopharma_agent.analytics.report import DeterministicTextAnalytics
 from biopharma_agent.analytics.timeseries import TimeSeriesAnalyzer
 from biopharma_agent.analysis.pipeline import BiopharmaAnalysisPipeline
@@ -181,6 +182,19 @@ def list_documents(
     else:
         repository = create_analysis_repository(settings)
     return repository.list_documents(filters).to_dict()
+
+
+def intelligence_brief(
+    path: str | Path = "data/processed/insights.jsonl",
+    limit: int = 100,
+) -> dict[str, Any]:
+    settings = AgentSettings.from_env().storage
+    if settings.backend == "jsonl":
+        repository = LocalAnalysisRepository(_safe_workspace_path(path))
+    else:
+        repository = create_analysis_repository(settings)
+    records = repository.list_records(limit=max(1, min(int(limit), 500)), offset=0)
+    return IntelligenceBriefBuilder().build(records, limit=limit)
 
 
 def get_document_detail(

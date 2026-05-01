@@ -19,6 +19,7 @@ class WebApiTest(unittest.TestCase):
         self.assertIn("source-state-status-filter", body)
         self.assertIn("source-state-alerts", body)
         self.assertIn("load-source-report-button", body)
+        self.assertIn("brief-button", body)
         self.assertIn("source-state-detail", body)
 
     def test_deterministic_analysis(self):
@@ -154,6 +155,33 @@ class WebApiTest(unittest.TestCase):
             self.assertEqual(detail["document"]["id"], "investegate-holding")
             self.assertEqual(detail["quality"]["extraction_method"], "semantic_container")
             self.assertTrue(detail["quality"]["html_cleaned"])
+
+    def test_intelligence_brief_returns_cross_document_summary(self):
+        with tempfile.TemporaryDirectory(dir=Path.cwd()) as temp_dir:
+            path = Path(temp_dir) / "documents.jsonl"
+            records = [
+                _pipeline_record(
+                    title="FDA clinical hold",
+                    source="fda_press_releases",
+                    event_type="regulatory",
+                    risk="high",
+                    summary="FDA placed a clinical hold on a trial.",
+                ),
+                _pipeline_record(
+                    title="Biotech financing",
+                    source="biopharma_dive_news",
+                    event_type="financing",
+                    risk="low",
+                    summary="Company raised financing.",
+                ),
+            ]
+            path.write_text("\n".join(json.dumps(record) for record in records) + "\n", encoding="utf-8")
+
+            brief = api.intelligence_brief(path)
+
+            self.assertEqual(brief["document_count"], 2)
+            self.assertIn("Biopharma Intelligence Brief", brief["markdown"])
+            self.assertTrue(brief["key_developments"])
 
     def test_list_runs(self):
         with tempfile.TemporaryDirectory(dir=Path.cwd()) as temp_dir:
