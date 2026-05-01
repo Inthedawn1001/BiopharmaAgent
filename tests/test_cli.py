@@ -61,6 +61,33 @@ class CliTest(unittest.TestCase):
             self.assertEqual(status, 0)
             self.assertIn("# Biopharma Intelligence Brief", buffer.getvalue())
 
+    def test_intelligence_brief_writes_artifacts(self):
+        with tempfile.TemporaryDirectory(dir=Path.cwd()) as temp_dir:
+            root = Path(temp_dir)
+            path = root / "insights.jsonl"
+            output_md = root / "brief.md"
+            output_json = root / "brief.json"
+            path.write_text(json.dumps(_pipeline_record()) + "\n", encoding="utf-8")
+            buffer = io.StringIO()
+
+            with redirect_stdout(buffer):
+                status = main(
+                    [
+                        "intelligence-brief",
+                        "--input",
+                        str(path),
+                        "--output-md",
+                        str(output_md),
+                        "--output-json",
+                        str(output_json),
+                    ]
+                )
+
+            self.assertEqual(status, 0)
+            self.assertTrue(output_md.exists())
+            self.assertTrue(output_json.exists())
+            self.assertIn("Artifacts", buffer.getvalue())
+
     def test_list_source_profiles_prints_profiles(self):
         buffer = io.StringIO()
 

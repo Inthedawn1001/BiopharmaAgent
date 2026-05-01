@@ -1,7 +1,10 @@
 import unittest
+import tempfile
+import json
+from pathlib import Path
 
 from biopharma_agent.analytics.report import DeterministicTextAnalytics
-from biopharma_agent.analytics.brief import IntelligenceBriefBuilder
+from biopharma_agent.analytics.brief import IntelligenceBriefBuilder, write_intelligence_brief_artifacts
 from biopharma_agent.analytics.risk import RuleBasedRiskScorer
 from biopharma_agent.analytics.sentiment import KeywordSentimentAnalyzer
 from biopharma_agent.analytics.timeseries import TimeSeriesAnalyzer
@@ -71,6 +74,32 @@ class AnalyticsTest(unittest.TestCase):
         self.assertIn("Biopharma Intelligence Brief", brief["markdown"])
         self.assertEqual(brief["risk_counts"][0]["name"], "high")
         self.assertTrue(brief["risk_watchlist"])
+
+    def test_write_intelligence_brief_artifacts(self):
+        brief = IntelligenceBriefBuilder().build(
+            [
+                _pipeline_record(
+                    title="FDA clinical hold",
+                    source="fda_press_releases",
+                    event_type="regulatory",
+                    risk="high",
+                    summary="FDA placed a clinical hold on a trial.",
+                )
+            ]
+        )
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            outputs = write_intelligence_brief_artifacts(
+                brief,
+                markdown_path=root / "brief.md",
+                json_path=root / "brief.json",
+            )
+
+            self.assertEqual(set(outputs), {"markdown", "json"})
+            self.assertIn("Biopharma Intelligence Brief", (root / "brief.md").read_text(encoding="utf-8"))
+            decoded = json.loads((root / "brief.json").read_text(encoding="utf-8"))
+            self.assertEqual(decoded["document_count"], 1)
 
 
 def _pipeline_record(title, source, event_type, risk, summary):

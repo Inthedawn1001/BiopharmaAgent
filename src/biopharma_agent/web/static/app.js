@@ -327,6 +327,17 @@ function renderBrief(brief) {
     card.append(span, strong);
     grid.appendChild(card);
   }
+  const artifacts = brief.artifacts || {};
+  if (artifacts.markdown || artifacts.json) {
+    const card = document.createElement("article");
+    card.className = "metric compact";
+    const span = document.createElement("span");
+    span.textContent = "Artifacts";
+    const strong = document.createElement("strong");
+    strong.textContent = [artifacts.markdown, artifacts.json].filter(Boolean).join(" · ");
+    card.append(span, strong);
+    grid.appendChild(card);
+  }
 }
 
 function filterSourceStateRows(rows) {
@@ -971,6 +982,8 @@ function wireActions() {
       const params = new URLSearchParams({
         path: $("#brief-path").value,
         limit: $("#brief-limit").value,
+        output_md: $("#brief-output-md").value,
+        output_json: $("#brief-output-json-path").value,
       });
       renderBrief(await getJson(`/api/intelligence-brief?${params.toString()}`));
     } catch (error) {

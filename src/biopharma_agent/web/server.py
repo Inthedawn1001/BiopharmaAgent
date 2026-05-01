@@ -70,7 +70,14 @@ class WorkbenchRequestHandler(BaseHTTPRequestHandler):
             query = parse_qs(parsed.query)
             path = query.get("path", ["data/processed/insights.jsonl"])[0]
             limit = int(query.get("limit", ["100"])[0])
-            self._write_json(api.intelligence_brief(path, limit=limit))
+            self._write_json(
+                api.intelligence_brief(
+                    path,
+                    limit=limit,
+                    output_md=query.get("output_md", [""])[0],
+                    output_json=query.get("output_json", [""])[0],
+                )
+            )
             return
 
         if parsed.path.startswith("/api/documents/"):

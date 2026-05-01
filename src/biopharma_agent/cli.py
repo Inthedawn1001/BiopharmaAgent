@@ -10,7 +10,7 @@ from pathlib import Path
 from dataclasses import asdict
 
 from biopharma_agent.agent.planner import LLMTaskPlanner
-from biopharma_agent.analytics.brief import IntelligenceBriefBuilder
+from biopharma_agent.analytics.brief import IntelligenceBriefBuilder, write_intelligence_brief_artifacts
 from biopharma_agent.analytics.report import DeterministicTextAnalytics
 from biopharma_agent.analytics.timeseries import TimeSeriesAnalyzer
 from biopharma_agent.analysis.pipeline import BiopharmaAnalysisPipeline
@@ -99,6 +99,8 @@ def main(argv: list[str] | None = None) -> int:
     brief.add_argument("--input", type=Path, default=Path("data/processed/insights.jsonl"))
     brief.add_argument("--limit", type=int, default=100)
     brief.add_argument("--json", action="store_true", help="Print JSON instead of Markdown.")
+    brief.add_argument("--output-md", type=Path, help="Write the brief Markdown to this path.")
+    brief.add_argument("--output-json", type=Path, help="Write the full brief JSON to this path.")
 
     feedback = subparsers.add_parser("feedback", help="Append a human review feedback record.")
     feedback.add_argument("--document-id", required=True)
@@ -404,7 +406,20 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "intelligence-brief":
         repository = LocalAnalysisRepository(args.input)
         report = IntelligenceBriefBuilder().build(repository.list_records(limit=args.limit), limit=args.limit)
+        outputs = write_intelligence_brief_artifacts(
+            report,
+            markdown_path=args.output_md,
+            json_path=args.output_json,
+        )
+        if outputs and not args.json:
+            artifact_lines = ["", "## Artifacts", ""]
+            artifact_lines.extend(f"- {label}: {path}" for label, path in outputs.items())
+            report = dict(report)
+            report["markdown"] = report["markdown"] + "\n".join(artifact_lines) + "\n"
         if args.json:
+            if outputs:
+                report = dict(report)
+                report["artifacts"] = outputs
             print(json.dumps(report, ensure_ascii=False, indent=2))
         else:
             print(report["markdown"])

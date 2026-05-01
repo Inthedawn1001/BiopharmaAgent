@@ -20,6 +20,8 @@ class WebApiTest(unittest.TestCase):
         self.assertIn("source-state-alerts", body)
         self.assertIn("load-source-report-button", body)
         self.assertIn("brief-button", body)
+        self.assertIn("brief-output-md", body)
+        self.assertIn("brief-output-json-path", body)
         self.assertIn("source-state-detail", body)
         self.assertIn("source-profile-strip", body)
 
@@ -183,6 +185,36 @@ class WebApiTest(unittest.TestCase):
             self.assertEqual(brief["document_count"], 2)
             self.assertIn("Biopharma Intelligence Brief", brief["markdown"])
             self.assertTrue(brief["key_developments"])
+
+    def test_intelligence_brief_can_write_artifacts(self):
+        with tempfile.TemporaryDirectory(dir=Path.cwd()) as temp_dir:
+            root = Path(temp_dir)
+            path = root / "documents.jsonl"
+            output_md = root / "brief.md"
+            output_json = root / "brief.json"
+            record = _pipeline_record(
+                title="FDA clinical hold",
+                source="fda_press_releases",
+                event_type="regulatory",
+                risk="high",
+                summary="FDA placed a clinical hold on a trial.",
+            )
+            path.write_text(json.dumps(record) + "\n", encoding="utf-8")
+
+            brief = api.intelligence_brief(path, output_md=output_md, output_json=output_json)
+
+            self.assertEqual(brief["artifacts"]["markdown"], str(output_md.resolve()))
+            self.assertEqual(brief["artifacts"]["json"], str(output_json.resolve()))
+            self.assertTrue(output_md.exists())
+            self.assertTrue(output_json.exists())
+
+    def test_intelligence_brief_rejects_artifact_paths_outside_workspace(self):
+        with tempfile.TemporaryDirectory(dir=Path.cwd()) as temp_dir:
+            path = Path(temp_dir) / "documents.jsonl"
+            path.write_text(json.dumps(_pipeline_record("FDA", "fda", "regulatory", "low", "ok")) + "\n")
+
+            with self.assertRaises(ValueError):
+                api.intelligence_brief(path, output_md="/private/tmp/brief.md")
 
     def test_list_runs(self):
         with tempfile.TemporaryDirectory(dir=Path.cwd()) as temp_dir:

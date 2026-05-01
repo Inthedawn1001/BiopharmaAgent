@@ -92,6 +92,10 @@ echo "A biotech company raised financing, but clinical failure risk remains." \
 
 PYTHONPATH=src python3 -m biopharma_agent.cli analyze-timeseries 1 2 3 100
 PYTHONPATH=src python3 -m biopharma_agent.cli intelligence-brief --input data/processed/insights.jsonl
+PYTHONPATH=src python3 -m biopharma_agent.cli intelligence-brief \
+  --input data/processed/insights.jsonl \
+  --output-md data/reports/latest_brief.md \
+  --output-json data/reports/latest_brief.json
 
 PYTHONPATH=src python3 -m biopharma_agent.cli feedback \
   --document-id doc-1 \

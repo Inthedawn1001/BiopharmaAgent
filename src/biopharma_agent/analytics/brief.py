@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from collections import Counter
 from datetime import datetime, timezone
+import json
+from pathlib import Path
 from typing import Any
 
 from biopharma_agent.analytics.topic import KeywordTopicAnalyzer
@@ -60,6 +62,26 @@ class IntelligenceBriefBuilder:
                 risk_watchlist=risk_watchlist,
             ),
         }
+
+
+def write_intelligence_brief_artifacts(
+    brief: dict[str, Any],
+    *,
+    markdown_path: Path | None = None,
+    json_path: Path | None = None,
+) -> dict[str, str]:
+    """Persist a generated brief as Markdown and/or JSON artifacts."""
+
+    outputs: dict[str, str] = {}
+    if markdown_path is not None:
+        markdown_path.parent.mkdir(parents=True, exist_ok=True)
+        markdown_path.write_text(str(brief.get("markdown") or ""), encoding="utf-8")
+        outputs["markdown"] = str(markdown_path)
+    if json_path is not None:
+        json_path.parent.mkdir(parents=True, exist_ok=True)
+        json_path.write_text(json.dumps(brief, ensure_ascii=False, indent=2, default=str) + "\n", encoding="utf-8")
+        outputs["json"] = str(json_path)
+    return outputs
 
 
 def _brief_row(record: dict[str, Any]) -> dict[str, Any]:
