@@ -21,7 +21,6 @@ from biopharma_agent.orchestration.scheduler import LocalRunLog, RecurringRunner
 from biopharma_agent.orchestration.source_state import source_state_summary
 from biopharma_agent.orchestration.workflow import LocalDocumentWorkflow
 from biopharma_agent.sources import get_default_source, list_default_sources
-from biopharma_agent.storage.graph import LocalKnowledgeGraphWriter
 from biopharma_agent.storage.local import LocalAnalysisRepository
 from biopharma_agent.llm.factory import create_llm_provider
 from biopharma_agent.llm.types import ChatMessage, LLMRequest
@@ -34,6 +33,7 @@ from biopharma_agent.ops.metrics import InMemoryMetrics
 from biopharma_agent.ops.source_report import build_source_health_report
 from biopharma_agent.storage.factory import (
     create_analysis_repository,
+    create_graph_writer,
     create_raw_archive,
     create_source_state_store,
 )
@@ -466,7 +466,7 @@ def main(argv: list[str] | None = None) -> int:
                 path=args.output,
                 idempotent=not args.append_duplicates,
             ),
-            graph_writer=None if args.no_graph else LocalKnowledgeGraphWriter(args.graph_dir),
+            graph_writer=None if args.no_graph else create_graph_writer(settings.graph, path=args.graph_dir),
         )
         result = workflow.run_text(
             text=text,
@@ -490,7 +490,7 @@ def main(argv: list[str] | None = None) -> int:
                 path=args.output,
                 idempotent=not args.append_duplicates,
             ),
-            graph_writer=None if args.no_graph else LocalKnowledgeGraphWriter(args.graph_dir),
+            graph_writer=None if args.no_graph else create_graph_writer(settings.graph, path=args.graph_dir),
         )
         result = workflow.run_url(
             args.url,

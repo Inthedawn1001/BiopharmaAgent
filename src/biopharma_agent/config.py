@@ -52,6 +52,7 @@ class AgentSettings:
     llm: LLMSettings
     storage: "StorageSettings"
     raw_archive: "RawArchiveSettings"
+    graph: "GraphSettings"
 
     @classmethod
     def from_env(cls) -> "AgentSettings":
@@ -59,6 +60,7 @@ class AgentSettings:
             llm=LLMSettings.from_env(),
             storage=StorageSettings.from_env(),
             raw_archive=RawArchiveSettings.from_env(),
+            graph=GraphSettings.from_env(),
         )
 
 
@@ -116,4 +118,27 @@ class RawArchiveSettings:
             s3_region=os.getenv("BIOPHARMA_RAW_ARCHIVE_S3_REGION", "us-east-1"),
             s3_access_key_id=os.getenv("BIOPHARMA_RAW_ARCHIVE_S3_ACCESS_KEY_ID", ""),
             s3_secret_access_key=os.getenv("BIOPHARMA_RAW_ARCHIVE_S3_SECRET_ACCESS_KEY", ""),
+        )
+
+
+@dataclass(frozen=True)
+class GraphSettings:
+    """Configuration for knowledge graph writes."""
+
+    backend: str
+    local_path: str
+    neo4j_uri: str
+    neo4j_user: str
+    neo4j_password: str
+    neo4j_database: str
+
+    @classmethod
+    def from_env(cls) -> "GraphSettings":
+        return cls(
+            backend=os.getenv("BIOPHARMA_GRAPH_BACKEND", "jsonl").strip().lower(),
+            local_path=os.getenv("BIOPHARMA_GRAPH_PATH", "data/graph"),
+            neo4j_uri=os.getenv("BIOPHARMA_NEO4J_URI", ""),
+            neo4j_user=os.getenv("BIOPHARMA_NEO4J_USER", ""),
+            neo4j_password=os.getenv("BIOPHARMA_NEO4J_PASSWORD", ""),
+            neo4j_database=os.getenv("BIOPHARMA_NEO4J_DATABASE", "neo4j"),
         )

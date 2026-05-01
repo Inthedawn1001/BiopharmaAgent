@@ -1,6 +1,6 @@
 """Storage adapters."""
 
-from biopharma_agent.storage.graph import LocalKnowledgeGraphWriter
+from biopharma_agent.storage.graph import KnowledgeGraphWriter, LocalKnowledgeGraphWriter
 from biopharma_agent.storage.local import (
     IdempotentLocalAnalysisRepository,
     LocalAnalysisRepository,
@@ -13,6 +13,7 @@ __all__ = [
     "DocumentFilters",
     "DocumentListResult",
     "IdempotentLocalAnalysisRepository",
+    "KnowledgeGraphWriter",
     "LocalAnalysisRepository",
     "LocalKnowledgeGraphWriter",
     "LocalRawArchive",

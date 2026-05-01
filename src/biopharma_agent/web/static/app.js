@@ -811,6 +811,14 @@ function diagnosticFacts(name, check) {
       ["Driver", check.driver_available == null ? "-" : String(check.driver_available)],
     ];
   }
+  if (name === "graph") {
+    return [
+      ["Backend", check.backend || "-"],
+      ["Path", check.path || "-"],
+      ["URI", check.has_uri == null ? "-" : String(check.has_uri)],
+      ["Driver", check.driver_available == null ? "-" : String(check.driver_available)],
+    ];
+  }
   if (name === "sources") {
     return [
       ["Total", String(check.total ?? 0)],

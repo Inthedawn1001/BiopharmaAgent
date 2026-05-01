@@ -2,7 +2,7 @@
 
 Agent toolkit for biopharma industry and capital-market intelligence.
 
-The current version includes the LLM abstraction layer, feed and source collection, local end-to-end analysis workflows, JSONL and optional PostgreSQL storage, local and S3-compatible raw-document archiving, graph export, and a local web workbench. The architecture keeps scheduling, online Neo4j writes, and deeper NLP/time-series modeling as clear extension points for Scrapy, Airflow, PostgreSQL, Neo4j, spaCy, LDA, ARIMA, and related components.
+The current version includes the LLM abstraction layer, feed and source collection, local end-to-end analysis workflows, JSONL and optional PostgreSQL storage, local and S3-compatible raw-document archiving, JSONL or Neo4j knowledge graph writes, and a local web workbench. The architecture keeps deeper NLP/time-series modeling as clear extension points for Scrapy, Airflow, PostgreSQL, Neo4j, spaCy, LDA, ARIMA, and related components.
 
 ## Implemented
 
@@ -18,7 +18,7 @@ The current version includes the LLM abstraction layer, feed and source collecti
 - Human feedback repository for JSONL and PostgreSQL backends
 - Raw document archive for local filesystem and S3/MinIO-compatible object storage
 - Lightweight scheduled fetch command with JSONL run logs
-- Graph-shaped node and edge JSONL export for later Neo4j import
+- Graph-shaped node and edge JSONL export plus optional Neo4j graph writes
 - Local web workbench for document analysis, document inbox, run monitoring, manual fetch triggers, human review, time-series analysis, model settings, and runtime diagnostics
 - Source health diagnosis with prioritized operational alerts for failed or disabled collectors
 - Markdown source health reports for operations review from CLI or the workbench
@@ -191,6 +191,16 @@ export BIOPHARMA_RAW_ARCHIVE_S3_SECRET_ACCESS_KEY=minioadmin
 scripts/run_minio_smoke.sh
 ```
 
+Knowledge graph writes default to local JSONL under `data/graph`. To write directly to Neo4j, install the driver and set the graph backend:
+
+```bash
+python3 -m pip install "neo4j>=5"
+export BIOPHARMA_GRAPH_BACKEND=neo4j
+export BIOPHARMA_NEO4J_URI=bolt://127.0.0.1:7687
+export BIOPHARMA_NEO4J_USER=neo4j
+export BIOPHARMA_NEO4J_PASSWORD=...
+```
+
 PostgreSQL + MinIO + real collection full-stack smoke:
 
 ```bash
@@ -239,7 +249,7 @@ Then visit `http://127.0.0.1:8765`. The workbench includes document analysis, do
 
 Latest local verification on May 1, 2026:
 
-- Unit tests: `PYTHONPATH=src python -m unittest discover -s tests` -> 110 passed, 1 skipped
+- Unit tests: `PYTHONPATH=src python -m unittest discover -s tests` -> 115 passed, 1 skipped
 - Storage smoke: `scripts/run_storage_smoke.sh` -> PostgreSQL and MinIO checks passed without external news-source dependency
 - Full-stack smoke: `scripts/run_full_stack_smoke.sh` -> PostgreSQL migration checked, MinIO raw object verified, FDA real collection selected 1 document and analyzed 1 document
 - Airflow smoke: `scripts/run_airflow_smoke.sh` -> DAG loaded, latest run log entry succeeded with 1 selected document, and source state was written

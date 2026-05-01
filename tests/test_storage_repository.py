@@ -4,14 +4,19 @@ import unittest
 from datetime import datetime, timezone
 from pathlib import Path
 
-from biopharma_agent.config import StorageSettings
+from biopharma_agent.config import GraphSettings, StorageSettings
 from biopharma_agent.contracts import ParsedDocument, PipelineResult, RawDocument, SourceRef
 from biopharma_agent.ops.factory import create_feedback_repository
 from biopharma_agent.ops.feedback import FeedbackRecord, LocalFeedbackRepository
 from biopharma_agent.orchestration.source_state import LocalSourceStateStore
 from biopharma_agent.orchestration.postgres_source_state import PostgresSourceStateStore
 from biopharma_agent.storage.postgres import PostgresAnalysisRepository
-from biopharma_agent.storage.factory import create_analysis_repository, create_source_state_store
+from biopharma_agent.storage.factory import (
+    create_analysis_repository,
+    create_graph_writer,
+    create_source_state_store,
+)
+from biopharma_agent.storage.graph import LocalKnowledgeGraphWriter
 from biopharma_agent.storage.local import IdempotentLocalAnalysisRepository, LocalAnalysisRepository
 from biopharma_agent.storage.repository import DocumentFilters
 
@@ -158,6 +163,32 @@ class StorageRepositoryTest(unittest.TestCase):
         store = create_source_state_store(settings)
 
         self.assertIsInstance(store, PostgresSourceStateStore)
+
+    def test_factory_selects_graph_jsonl_writer(self):
+        settings = GraphSettings(
+            backend="jsonl",
+            local_path="data/graph",
+            neo4j_uri="",
+            neo4j_user="",
+            neo4j_password="",
+            neo4j_database="neo4j",
+        )
+
+        writer = create_graph_writer(settings, path="custom-graph")
+
+        self.assertIsInstance(writer, LocalKnowledgeGraphWriter)
+
+    def test_factory_can_disable_graph_writer(self):
+        settings = GraphSettings(
+            backend="none",
+            local_path="data/graph",
+            neo4j_uri="",
+            neo4j_user="",
+            neo4j_password="",
+            neo4j_database="neo4j",
+        )
+
+        self.assertIsNone(create_graph_writer(settings))
 
     def test_postgres_list_documents_uses_sql_filters_and_pagination(self):
         repository = FakePostgresAnalysisRepository()

@@ -101,6 +101,11 @@ Local PostgreSQL development is defined in `compose.yaml`. Optional integration
 checks are skipped by default and enabled with `BIOPHARMA_RUN_POSTGRES_TESTS=1`
 plus `BIOPHARMA_POSTGRES_DSN`.
 
+Knowledge graph writes use the same workflow boundary. The default graph backend
+is local JSONL under `data/graph`, which remains easy to inspect and import.
+Set `BIOPHARMA_GRAPH_BACKEND=neo4j` plus `BIOPHARMA_NEO4J_URI` and credentials to
+write document, entity, event, and relation nodes directly to Neo4j.
+
 ## Raw Archive Boundary
 
 Raw collected documents are written through a `RawArchive` protocol. The local

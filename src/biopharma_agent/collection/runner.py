@@ -19,10 +19,10 @@ from biopharma_agent.orchestration.source_state import SourceStateStore
 from biopharma_agent.orchestration.workflow import LocalDocumentWorkflow
 from biopharma_agent.storage.factory import (
     create_analysis_repository,
+    create_graph_writer,
     create_raw_archive,
     create_source_state_store,
 )
-from biopharma_agent.storage.graph import LocalKnowledgeGraphWriter
 
 
 @dataclass(frozen=True)
@@ -307,7 +307,7 @@ def _workflow(
             path=options.output,
             idempotent=True,
         ),
-        graph_writer=None if options.no_graph else LocalKnowledgeGraphWriter(options.graph_dir),
+        graph_writer=None if options.no_graph else create_graph_writer(settings.graph, path=options.graph_dir),
     )
 
 

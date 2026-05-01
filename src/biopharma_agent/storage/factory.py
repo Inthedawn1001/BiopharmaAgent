@@ -4,8 +4,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from biopharma_agent.config import RawArchiveSettings, StorageSettings
+from biopharma_agent.config import GraphSettings, RawArchiveSettings, StorageSettings
 from biopharma_agent.orchestration.source_state import LocalSourceStateStore, SourceStateStore
+from biopharma_agent.storage.graph import KnowledgeGraphWriter, LocalKnowledgeGraphWriter
 from biopharma_agent.storage.local import IdempotentLocalAnalysisRepository, LocalAnalysisRepository
 from biopharma_agent.storage.postgres import PostgresAnalysisRepository
 from biopharma_agent.storage.raw_archive import LocalRawArchive, RawArchive
@@ -68,3 +69,22 @@ def create_source_state_store(
 
         return PostgresSourceStateStore(settings.postgres_dsn)
     raise ValueError(f"Unsupported storage backend: {settings.backend}")
+
+
+def create_graph_writer(
+    settings: GraphSettings,
+    *,
+    path: Path | str | None = None,
+) -> KnowledgeGraphWriter | None:
+    """Create the configured knowledge graph writer."""
+
+    backend = settings.backend.lower()
+    if backend in {"none", "disabled", "off"}:
+        return None
+    if backend == "jsonl":
+        return LocalKnowledgeGraphWriter(path or settings.local_path)
+    if backend == "neo4j":
+        from biopharma_agent.storage.neo4j_graph import Neo4jKnowledgeGraphWriter
+
+        return Neo4jKnowledgeGraphWriter(settings)
+    raise ValueError(f"Unsupported graph backend: {settings.backend}")

@@ -58,8 +58,23 @@ class DiagnosticsTest(unittest.TestCase):
         data = api.diagnostics()
 
         self.assertIn("checks", data)
+        self.assertIn("graph", data["checks"])
         self.assertGreaterEqual(data["checks"]["sources"]["enabled"], 1)
         self.assertIn("sec_biopharma_filings", data["checks"]["sources"]["enabled_sources"])
+
+    def test_diagnostics_warns_when_neo4j_is_missing_uri(self):
+        with tempfile.TemporaryDirectory(dir=Path.cwd()) as temp_dir, patch.dict(
+            os.environ,
+            {
+                "BIOPHARMA_GRAPH_BACKEND": "neo4j",
+                "BIOPHARMA_NEO4J_URI": "",
+            },
+            clear=False,
+        ):
+            data = diagnose_environment(temp_dir)
+
+            self.assertEqual(data["checks"]["graph"]["status"], "warning")
+            self.assertIn("BIOPHARMA_NEO4J_URI", " ".join(data["checks"]["graph"]["issues"]))
 
 
 if __name__ == "__main__":

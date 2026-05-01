@@ -26,6 +26,7 @@ def diagnose_environment(workspace: Path | str | None = None) -> dict[str, Any]:
         "llm": _llm_check(settings),
         "storage": _storage_check(settings, root),
         "raw_archive": _raw_archive_check(settings, root),
+        "graph": _graph_check(settings, root),
         "sources": _sources_check(),
         "docker": _docker_check(root),
         "git": _git_check(root),
@@ -83,8 +84,8 @@ def _storage_check(settings: AgentSettings, root: Path) -> dict[str, Any]:
         feedback_path = _workspace_path(root, storage.feedback_jsonl_path)
         details.update(
             {
-                "analysis_jsonl_path": str(analysis_path),
-                "feedback_jsonl_path": str(feedback_path),
+                "analysis_jsonl_path": _display_path(root, analysis_path),
+                "feedback_jsonl_path": _display_path(root, feedback_path),
                 "analysis_parent_ready": _parent_ready(analysis_path),
                 "feedback_parent_ready": _parent_ready(feedback_path),
             }
@@ -117,7 +118,7 @@ def _raw_archive_check(settings: AgentSettings, root: Path) -> dict[str, Any]:
         local_path = _workspace_path(root, archive.local_path)
         details.update(
             {
-                "path": str(local_path),
+                "path": _display_path(root, local_path),
                 "parent_ready": _parent_ready(local_path),
             }
         )
@@ -140,6 +141,43 @@ def _raw_archive_check(settings: AgentSettings, root: Path) -> dict[str, Any]:
             issues.append("boto3 is not installed in this Python environment.")
     else:
         issues.append(f"Unsupported raw archive backend: {archive.backend}")
+
+    details["status"] = "ok" if not issues else "warning"
+    details["issues"] = issues
+    return details
+
+
+def _graph_check(settings: AgentSettings, root: Path) -> dict[str, Any]:
+    graph = settings.graph
+    issues: list[str] = []
+    details: dict[str, Any] = {"backend": graph.backend}
+    if graph.backend == "jsonl":
+        local_path = _workspace_path(root, graph.local_path)
+        details.update(
+            {
+                "path": _display_path(root, local_path),
+                "parent_ready": _parent_ready(local_path),
+            }
+        )
+    elif graph.backend == "neo4j":
+        has_driver = importlib.util.find_spec("neo4j") is not None
+        details.update(
+            {
+                "has_uri": bool(graph.neo4j_uri),
+                "has_user": bool(graph.neo4j_user),
+                "has_password": bool(graph.neo4j_password),
+                "database": graph.neo4j_database,
+                "driver_available": has_driver,
+            }
+        )
+        if not graph.neo4j_uri:
+            issues.append("BIOPHARMA_NEO4J_URI is not configured.")
+        if not has_driver:
+            issues.append("neo4j is not installed in this Python environment.")
+    elif graph.backend in {"none", "disabled", "off"}:
+        details["enabled"] = False
+    else:
+        issues.append(f"Unsupported graph backend: {graph.backend}")
 
     details["status"] = "ok" if not issues else "warning"
     details["issues"] = issues
@@ -302,6 +340,13 @@ def _run_command(
 def _workspace_path(root: Path, value: str) -> Path:
     path = Path(value)
     return path if path.is_absolute() else root / path
+
+
+def _display_path(root: Path, path: Path) -> str:
+    try:
+        return str(path.resolve().relative_to(root.resolve()))
+    except ValueError:
+        return f"<external>/{path.name}"
 
 
 def _parent_ready(path: Path) -> bool:

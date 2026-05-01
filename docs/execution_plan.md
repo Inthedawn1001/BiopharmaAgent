@@ -33,8 +33,8 @@
   and database-backed feedback are in place.)
 - Add object storage interface for raw pages and documents. (RawArchive protocol,
   local implementation, S3/MinIO adapter, and MinIO compose service are in place.)
-- Add Neo4j writer for extracted entity and relation graphs. (Current MVP writes
-  graph-shaped JSONL for later import.)
+- Add Neo4j writer for extracted entity and relation graphs. (Graph-shaped JSONL
+  and optional Neo4j writes are in place.)
 
 ## Phase 4.1: Next Storage Work
 
