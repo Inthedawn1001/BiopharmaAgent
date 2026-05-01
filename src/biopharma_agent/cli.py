@@ -31,6 +31,7 @@ from biopharma_agent.ops.diagnostics import diagnose_environment
 from biopharma_agent.ops.llm_observer import ObservedLLMProvider
 from biopharma_agent.ops.logging import configure_logging
 from biopharma_agent.ops.metrics import InMemoryMetrics
+from biopharma_agent.ops.quality_gate import run_quality_gate
 from biopharma_agent.ops.source_report import build_source_health_report
 from biopharma_agent.storage.factory import (
     create_analysis_repository,
@@ -269,6 +270,23 @@ def main(argv: list[str] | None = None) -> int:
     daily_cycle.add_argument("--report-md", type=Path, default=Path("data/reports/latest_brief.md"))
     daily_cycle.add_argument("--report-json", type=Path, default=Path("data/reports/latest_brief.json"))
     daily_cycle.add_argument("--json", action="store_true", help="Print the full cycle JSON result.")
+
+    quality_gate = subparsers.add_parser(
+        "quality-gate",
+        help="Validate local intelligence artifacts before operational use.",
+    )
+    quality_gate.add_argument("--analysis-path", type=Path, default=Path("data/processed/insights.jsonl"))
+    quality_gate.add_argument("--brief-md", type=Path, default=Path("data/reports/latest_brief.md"))
+    quality_gate.add_argument("--source-state", type=Path, default=Path("data/runs/source_state.json"))
+    quality_gate.add_argument("--min-records", type=int, default=1)
+    quality_gate.add_argument("--min-summary-ratio", type=float, default=0.8)
+    quality_gate.add_argument("--min-event-ratio", type=float, default=0.6)
+    quality_gate.add_argument("--min-risk-ratio", type=float, default=0.6)
+    quality_gate.add_argument("--min-usable-body-ratio", type=float, default=0.5)
+    quality_gate.add_argument("--max-failed-sources", type=int, default=0)
+    quality_gate.add_argument("--require-brief", action="store_true")
+    quality_gate.add_argument("--require-source-state", action="store_true")
+    quality_gate.add_argument("--json", action="store_true", help="Print the full gate result as JSON.")
 
     serve = subparsers.add_parser("serve", help="Start the local web workbench.")
     serve.add_argument("--host", default="127.0.0.1")
@@ -736,6 +754,29 @@ def main(argv: list[str] | None = None) -> int:
                 for label, path in artifacts.items():
                     print(f"{label}: {path}")
         return 0
+
+    if args.command == "quality-gate":
+        result = run_quality_gate(
+            analysis_path=args.analysis_path,
+            brief_markdown_path=args.brief_md,
+            source_state_path=args.source_state,
+            min_records=args.min_records,
+            min_summary_ratio=args.min_summary_ratio,
+            min_event_ratio=args.min_event_ratio,
+            min_risk_ratio=args.min_risk_ratio,
+            min_usable_body_ratio=args.min_usable_body_ratio,
+            max_failed_sources=args.max_failed_sources,
+            require_brief=args.require_brief,
+            require_source_state=args.require_source_state,
+        )
+        if args.json:
+            print(json.dumps(result, ensure_ascii=False, indent=2))
+        else:
+            print(f"Quality gate {result['status']}: {result['summary']['passed']}/{result['summary']['total']} checks passed")
+            for check in result["checks"]:
+                marker = "OK" if check["status"] == "pass" else "FAIL"
+                print(f"- {marker} {check['name']}: {check['message']}")
+        return 0 if result["status"] == "pass" else 1
 
     parser.error(f"Unknown command: {args.command}")
     return 2

@@ -20,6 +20,11 @@ key developments, and risk watchlists without requiring another external model
 call. This gives the workbench a first complete loop from collection to
 portfolio-level intelligence.
 
+The daily intelligence cycle combines collection, optional LLM analysis, source
+health updates, brief generation, and run logging into one repeatable command.
+This is the primary operator loop for local runs, workbench-triggered jobs, and
+Airflow scheduling.
+
 ## Source Catalog
 
 Feed sources are stored as `SourceRef` entries with operational metadata:
@@ -117,11 +122,11 @@ or analysis code.
 
 ## Scheduling Boundary
 
-Recurring collection is built around the `scheduled-fetch` CLI command and a
-small `RecurringRunner`. The runner records every attempt to a JSONL run log
-with status, timing, result, error, and metadata. This gives cron, local
-development, and Airflow the same execution path: run the CLI once, or loop it
-with an interval.
+Recurring collection is built around the `daily-cycle` and `scheduled-fetch` CLI
+commands plus a small `RecurringRunner`. The runner records every attempt to a
+JSONL run log with status, timing, result, error, and metadata. This gives cron,
+local development, the workbench, and Airflow the same execution path: run the
+CLI once, or loop it with an interval.
 
 Collection also maintains source state unless disabled by the caller. JSONL mode
 uses `data/runs/source_state.json`; PostgreSQL mode stores the same contract in
@@ -132,7 +137,18 @@ document IDs are skipped before analysis, while failures still update source
 health for diagnosis. The same state can generate prioritized source alerts and
 a Markdown source health report for operations review.
 
-The Airflow DAG in `infra/airflow/dags` intentionally shells out to
-`scheduled-fetch --max-runs 1`. Airflow handles external orchestration while the
-agent keeps ownership of source selection, LLM configuration, storage, raw
-archive, and graph settings.
+The Airflow DAG in `infra/airflow/dags` intentionally shells out to the CLI.
+Daily-cycle mode is the production path because it fetches sources, analyzes,
+updates source state, writes reports, and emits a compact Airflow task summary.
+Scheduled-fetch mode remains available for collection-only compatibility.
+Airflow handles external orchestration while the agent keeps ownership of source
+selection, LLM configuration, storage, raw archive, and graph settings.
+
+## Quality Gate Boundary
+
+`biopharma_agent.ops.quality_gate` validates the artifacts produced by the daily
+cycle without calling external services. It checks analysis record volume,
+summary/event/risk coverage, usable document-body coverage, expected brief
+sections, and source-state failure counts. The `quality-gate` CLI command
+returns a non-zero exit code on failure, so CI, cron, Airflow, or a deployment
+script can stop promotion of incomplete intelligence artifacts.

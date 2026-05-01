@@ -17,14 +17,14 @@
 
 ## Phase 3: Collection Layer
 
-- Add crawler source registry. (Feed source registry with category, priority,
-  polling interval, and request-delay metadata is in place.)
-- Start with lightweight HTTP fetchers for a few sources. (RSS/Atom fetchers and
-  scheduled-fetch CLI are in place. HTML listing adapter is in place for
-  no-RSS source candidates, including optional detail-page deep fetch and main-text cleanup.)
+- Add crawler source registry. (Feed/source registry with category, priority,
+  polling interval, request-delay metadata, and reusable source profiles is in place.)
+- Start with lightweight HTTP fetchers for a few sources. (RSS/Atom, HTML
+  listing, ASX announcement, and SEC submissions collectors are in place,
+  including optional detail-page deep fetch and main-text cleanup.)
 - Add Scrapy project integration for larger crawling jobs.
 - Prepare Airflow DAG wrappers after the first local pipeline is stable. (DAG
-  wrapper is in `infra/airflow/dags`.)
+  wrapper is in `infra/airflow/dags` and can run the full daily cycle.)
 
 ## Phase 4: Storage Layer
 
@@ -54,8 +54,23 @@
 
 ## Phase 6: Operations
 
-- Add structured logging, metrics, retries, and rate-limit controls.
-- Track token usage, cost, latency, and extraction quality.
-- Add human review queue and feedback loop.
+- Add structured logging, metrics, retries, and rate-limit controls. (Structured
+  logs, source request delays, source health state, run logs, and failure
+  diagnosis are in place.)
+- Track token usage, cost, latency, and extraction quality. (LLM observer
+  metrics, document quality labels, source health reports, diagnostics, and a
+  production quality gate are in place.)
+- Add human review queue and feedback loop. (Feedback repository and workbench
+  review flows are in place.)
 - Add Docker Compose for local infrastructure. (PostgreSQL and MinIO services
-  are in place.)
+  are in place, with storage, full-stack, and Airflow smoke scripts.)
+
+## Production Readiness Focus
+
+- The main daily productivity loop is implemented: collect prioritized sources,
+  analyze with the configured LLM, update source health, generate a brief, and
+  validate outputs with `quality-gate`.
+- Remaining production-hardening work is mostly scale and governance: broader
+  source expansion, Scrapy for high-volume crawling, richer deterministic NLP,
+  topic/time-series models beyond the current keyword/time-series modules,
+  managed secret storage, deployed observability, and access control.

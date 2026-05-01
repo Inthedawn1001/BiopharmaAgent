@@ -19,8 +19,84 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Check whitespace
+        run: git diff --check
+
+      - name: Scan for committed secrets and local identifiers
+        run: |
+          python - <<'PY'
+          import pathlib
+          import re
+          import sys
+          root = pathlib.Path(".")
+          pattern = re.compile(r"[\u4e00-\u9fff]|local-" + "user|personal-" + "host|Mac" + "Book")
+          skip_dirs = {".git", ".venv", "venv", "__pycache__", "data", "logs"}
+          matches = []
+          for path in root.rglob("*"):
+              if path.is_dir() or any(part in skip_dirs for part in path.parts):
+                  continue
+              try:
+                  text = path.read_text(encoding="utf-8")
+              except UnicodeDecodeError:
+                  continue
+              for lineno, line in enumerate(text.splitlines(), 1):
+                  if pattern.search(line):
+                      matches.append(f"{path}:{lineno}:{line}")
+          if matches:
+              print("\n".join(matches))
+              sys.exit(1)
+          PY
+          ! git grep -n -E 'sk-[A-Za-z0-9_]{12,}' -- .
+
       - name: Run unit tests
         run: PYTHONPATH=src python -m unittest discover -s tests
+
+      - name: Run fixture quality gate
+        run: |
+          mkdir -p data/processed data/reports data/runs
+          PYTHONPATH=src python - <<'PY'
+          import json
+          from pathlib import Path
+          text = (
+              "FDA placed a clinical hold on a clinical program. The sponsor plans to respond with "
+              "additional safety data and manufacturing controls. Investors should monitor regulatory "
+              "timelines, trial restart requirements, and cash runway impact across the portfolio."
+          )
+          record = {
+              "document": {
+                  "raw": {
+                      "document_id": "ci-doc-1",
+                      "title": "FDA clinical hold",
+                      "url": "https://example.test/ci-doc-1",
+                      "source": {"name": "fda_press_releases", "kind": "test"},
+                  },
+                  "text": text,
+                  "checksum": "ci-doc-1",
+              },
+              "provider": "ci",
+              "model": "fixture",
+              "created_at": "2026-05-01T00:00:00+00:00",
+              "insight": {
+                  "summary": "FDA placed a clinical hold on a clinical program.",
+                  "events": [{"event_type": "regulatory", "title": "Clinical hold"}],
+                  "risk_signals": [{"severity": "high", "risk_type": "regulatory"}],
+              },
+          }
+          Path("data/processed/insights.jsonl").write_text(json.dumps(record) + "\n", encoding="utf-8")
+          Path("data/reports/latest_brief.md").write_text(
+              "# Biopharma Intelligence Brief\n\n"
+              "## Executive Summary\nA compact summary.\n\n"
+              "## Signals\n- Event mix: regulatory (1)\n\n"
+              "## Key Developments\nNo key developments are available.\n\n"
+              "## Risk Watchlist\nNo medium or high risk items found.\n",
+              encoding="utf-8",
+          )
+          Path("data/runs/source_state.json").write_text(
+              json.dumps({"sources": {"fda_press_releases": {"last_status": "success"}}}),
+              encoding="utf-8",
+          )
+          PY
+          PYTHONPATH=src python -m biopharma_agent.cli quality-gate --require-brief --require-source-state
 
   storage-smoke:
     name: Storage smoke
