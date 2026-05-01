@@ -25,6 +25,9 @@ class WebApiTest(unittest.TestCase):
         self.assertIn("source-state-detail", body)
         self.assertIn("source-profile-strip", body)
         self.assertIn("daily-cycle-button", body)
+        self.assertIn("select-healthy-sources-button", body)
+        self.assertIn("retry-failed-sources-button", body)
+        self.assertIn("load-latest-brief-button", body)
 
     def test_deterministic_analysis(self):
         data = api.analyze_deterministic(
@@ -209,6 +212,35 @@ class WebApiTest(unittest.TestCase):
             self.assertTrue(output_md.exists())
             self.assertTrue(output_json.exists())
 
+    def test_latest_intelligence_brief_reads_artifacts(self):
+        with tempfile.TemporaryDirectory(dir=Path.cwd()) as temp_dir:
+            root = Path(temp_dir)
+            output_md = root / "brief.md"
+            output_json = root / "brief.json"
+            output_md.write_text("# Brief\n\nLatest.", encoding="utf-8")
+            output_json.write_text(
+                json.dumps({"document_count": 2, "summary": "Latest brief."}),
+                encoding="utf-8",
+            )
+
+            data = api.latest_intelligence_brief(output_md, output_json)
+
+            self.assertTrue(data["ok"])
+            self.assertTrue(data["exists"]["markdown"])
+            self.assertTrue(data["exists"]["json"])
+            self.assertEqual(data["brief"]["document_count"], 2)
+            self.assertIn("# Brief", data["markdown"])
+
+    def test_latest_intelligence_brief_returns_empty_when_missing(self):
+        with tempfile.TemporaryDirectory(dir=Path.cwd()) as temp_dir:
+            root = Path(temp_dir)
+
+            data = api.latest_intelligence_brief(root / "missing.md", root / "missing.json")
+
+            self.assertFalse(data["ok"])
+            self.assertFalse(data["exists"]["markdown"])
+            self.assertFalse(data["exists"]["json"])
+
     def test_intelligence_brief_rejects_artifact_paths_outside_workspace(self):
         with tempfile.TemporaryDirectory(dir=Path.cwd()) as temp_dir:
             path = Path(temp_dir) / "documents.jsonl"
@@ -338,6 +370,42 @@ class WebApiTest(unittest.TestCase):
             self.assertIn("Biopharma Agent Source Health Report", data["markdown"])
             self.assertEqual(data["summary"]["latest_run_status"], "success")
 
+    def test_recommended_sources_skips_failed_and_disabled_sources(self):
+        with tempfile.TemporaryDirectory(dir=Path.cwd()) as temp_dir:
+            state_path = Path(temp_dir) / "source_state.json"
+            state_path.write_text(
+                json.dumps(
+                    {
+                        "sources": {
+                            "fda_press_releases": {
+                                "source": "fda_press_releases",
+                                "enabled": True,
+                                "last_status": "success",
+                            },
+                            "fda_medwatch": {
+                                "source": "fda_medwatch",
+                                "enabled": True,
+                                "last_status": "failed",
+                            },
+                            "mhra_drug_device_alerts": {
+                                "source": "mhra_drug_device_alerts",
+                                "enabled": False,
+                                "last_status": "never_run",
+                            },
+                        }
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            data = api.recommended_sources(state_path, profile="core_intelligence")
+
+            self.assertIn("fda_press_releases", data["sources"])
+            self.assertNotIn("fda_medwatch", data["sources"])
+            self.assertNotIn("mhra_drug_device_alerts", data["sources"])
+            self.assertIn("fda_medwatch", data["skipped_failed"])
+            self.assertIn("mhra_drug_device_alerts", data["skipped_disabled"])
+
     def test_diagnostics_endpoint_shape(self):
         data = api.diagnostics()
 
@@ -400,6 +468,59 @@ class WebApiTest(unittest.TestCase):
             self.assertFalse(data["ok"])
             self.assertEqual(data["record"]["status"], "failed")
             self.assertIn("boom", data["record"]["error"])
+
+    def test_trigger_retry_failed_sources_reuses_fetch_job(self):
+        with tempfile.TemporaryDirectory(dir=Path.cwd()) as temp_dir, patch(
+            "biopharma_agent.web.api.collect_sources",
+            return_value=[{"source": "fda_press_releases", "selected": 1, "analyzed": 0}],
+        ):
+            state_path = Path(temp_dir) / "source_state.json"
+            state_path.write_text(
+                json.dumps(
+                    {
+                        "sources": {
+                            "fda_press_releases": {
+                                "source": "fda_press_releases",
+                                "enabled": True,
+                                "last_status": "failed",
+                            },
+                            "sec_biopharma_filings": {
+                                "source": "sec_biopharma_filings",
+                                "enabled": True,
+                                "last_status": "success",
+                            },
+                        }
+                    }
+                ),
+                encoding="utf-8",
+            )
+            run_log = Path(temp_dir) / "runs.jsonl"
+
+            data = api.trigger_retry_failed_sources(
+                {
+                    "state_path": str(state_path),
+                    "run_log": str(run_log),
+                    "limit": 1,
+                    "analyze": False,
+                    "output": str(Path(temp_dir) / "insights.jsonl"),
+                    "archive_dir": str(Path(temp_dir) / "raw"),
+                    "graph_dir": str(Path(temp_dir) / "graph"),
+                }
+            )
+
+            self.assertTrue(data["ok"])
+            self.assertEqual(data["retry_sources"], ["fda_press_releases"])
+            self.assertEqual(data["record"]["metadata"]["sources"], ["fda_press_releases"])
+
+    def test_trigger_retry_failed_sources_skips_when_none_failed(self):
+        with tempfile.TemporaryDirectory(dir=Path.cwd()) as temp_dir:
+            state_path = Path(temp_dir) / "source_state.json"
+            state_path.write_text(json.dumps({"sources": {}}), encoding="utf-8")
+
+            data = api.trigger_retry_failed_sources({"state_path": str(state_path)})
+
+            self.assertTrue(data["ok"])
+            self.assertEqual(data["record"]["status"], "skipped")
 
     def test_trigger_daily_cycle_records_result(self):
         with tempfile.TemporaryDirectory(dir=Path.cwd()) as temp_dir, patch(

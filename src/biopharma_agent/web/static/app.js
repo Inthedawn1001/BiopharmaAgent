@@ -297,8 +297,15 @@ function renderSourceAlerts(alerts) {
     title.textContent = `${alert.title || "Source alert"} · ${alert.source || "-"}`;
     const message = document.createElement("span");
     message.textContent = alert.action || alert.message || "-";
+    const retry = document.createElement("button");
+    retry.type = "button";
+    retry.className = "ghost mini-action";
+    retry.textContent = "Retry";
+    retry.addEventListener("click", async () => {
+      await retryFailedSources([alert.source]);
+    });
     body.append(title, message);
-    item.append(badge, body);
+    item.append(badge, body, retry);
     container.appendChild(item);
   }
 }
@@ -815,6 +822,15 @@ function selectedJobSources() {
   return Array.from($("#job-sources").selectedOptions).map((option) => option.value);
 }
 
+function setSelectedJobSources(sourceNames) {
+  const selected = new Set(sourceNames);
+  for (const option of Array.from($("#job-sources").options)) {
+    option.selected = selected.has(option.value) && !option.disabled;
+  }
+  state.selectedProfile = matchingSourceProfile(selectedJobSources());
+  renderSourceProfiles();
+}
+
 function jobPayload(overrides = {}) {
   const selectedSources = selectedJobSources();
   const matchingProfile = matchingSourceProfile(selectedSources);
@@ -875,6 +891,42 @@ async function loadSourceReport() {
     run_log: $("#runs-path").value,
   });
   return getJson(`/api/source-report?${params.toString()}`);
+}
+
+async function loadLatestBrief() {
+  const params = new URLSearchParams({
+    markdown_path: $("#brief-output-md").value,
+    json_path: $("#brief-output-json-path").value,
+  });
+  return getJson(`/api/intelligence-brief/latest?${params.toString()}`);
+}
+
+async function selectHealthySources() {
+  const params = new URLSearchParams({
+    state_path: $("#job-state-path").value,
+    profile: state.selectedProfile || "",
+    limit: "25",
+  });
+  const data = await getJson(`/api/sources/recommended?${params.toString()}`);
+  setSelectedJobSources(data.sources || []);
+  $("#job-output-json").textContent = JSON.stringify(data, null, 2);
+  return data;
+}
+
+async function retryFailedSources(sourceNames = []) {
+  const result = await requestJson(
+    "/api/jobs/retry-failed",
+    jobPayload({
+      sources: sourceNames,
+      run_log: "data/runs/fetch_runs.jsonl",
+      limit: Number($("#job-limit").value || 1),
+      incremental: false,
+    }),
+  );
+  $("#job-output-json").textContent = JSON.stringify(result, null, 2);
+  $("#runs-path").value = result.run_log || "data/runs/fetch_runs.jsonl";
+  await refreshOperationalViews();
+  return result;
 }
 
 function renderDiagnostics(data) {
@@ -1030,6 +1082,22 @@ function wireActions() {
       setLoading(button, false);
     }
   });
+  $("#load-latest-brief-button").addEventListener("click", async (event) => {
+    const button = event.currentTarget;
+    setLoading(button, true);
+    try {
+      const data = await loadLatestBrief();
+      if (!data.ok) {
+        $("#brief-output").textContent = "No brief artifact found yet. Run Daily Cycle or Generate Brief first.";
+        return;
+      }
+      renderBrief(data.brief || { markdown: data.markdown, artifacts: data.artifacts });
+    } catch (error) {
+      $("#brief-output").textContent = `Latest brief failed: ${error.message}`;
+    } finally {
+      setLoading(button, false);
+    }
+  });
   $("#feedback-button").addEventListener("click", async (event) => {
     const button = event.currentTarget;
     setLoading(button, true);
@@ -1135,6 +1203,28 @@ function wireActions() {
     const selectedSources = selectedJobSources();
     state.selectedProfile = matchingSourceProfile(selectedSources);
     renderSourceProfiles();
+  });
+  $("#select-healthy-sources-button").addEventListener("click", async (event) => {
+    const button = event.currentTarget;
+    setLoading(button, true);
+    try {
+      await selectHealthySources();
+    } catch (error) {
+      $("#job-output-json").textContent = JSON.stringify({ error: error.message }, null, 2);
+    } finally {
+      setLoading(button, false);
+    }
+  });
+  $("#retry-failed-sources-button").addEventListener("click", async (event) => {
+    const button = event.currentTarget;
+    setLoading(button, true);
+    try {
+      await retryFailedSources();
+    } catch (error) {
+      $("#job-output-json").textContent = JSON.stringify({ error: error.message }, null, 2);
+    } finally {
+      setLoading(button, false);
+    }
   });
   $("#trigger-fetch-button").addEventListener("click", async (event) => {
     const button = event.currentTarget;

@@ -191,6 +191,8 @@
                 <input id="job-incremental" type="checkbox" />
                 Incremental only
               </label>
+              <button id="select-healthy-sources-button" class="ghost">Select Healthy Sources</button>
+              <button id="retry-failed-sources-button" class="ghost">Retry Failed Sources</button>
               <button id="trigger-fetch-button">Trigger Fetch</button>
               <button id="daily-cycle-button" class="secondary">Run Daily Cycle</button>
             </div>
@@ -380,6 +382,7 @@
               <input id="brief-output-json-path" value="data/reports/latest_brief.json" />
             </label>
             <button id="brief-button">Generate Brief</button>
+            <button id="load-latest-brief-button" class="secondary">Load Latest Brief</button>
           </div>
           <div id="brief-summary-grid" class="metric-grid"></div>
           <pre id="brief-output" class="json-view compact report-view">Generate a brief to view Markdown.</pre>

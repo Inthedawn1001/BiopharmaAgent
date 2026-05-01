@@ -273,7 +273,7 @@ button.ghost {
 
 .source-alert {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: start;
   gap: 10px;
   border: 1px solid var(--line);
@@ -306,6 +306,12 @@ button.ghost {
 
 .source-alert-ok {
   grid-template-columns: 1fr;
+}
+
+.mini-action {
+  min-height: 30px;
+  padding: 0 10px;
+  font-size: 12px;
 }
 
 .report-view {

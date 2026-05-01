@@ -80,6 +80,16 @@ class WorkbenchRequestHandler(BaseHTTPRequestHandler):
             )
             return
 
+        if parsed.path == "/api/intelligence-brief/latest":
+            query = parse_qs(parsed.query)
+            self._write_json(
+                api.latest_intelligence_brief(
+                    markdown_path=query.get("markdown_path", ["data/reports/latest_brief.md"])[0],
+                    json_path=query.get("json_path", ["data/reports/latest_brief.json"])[0],
+                )
+            )
+            return
+
         if parsed.path.startswith("/api/documents/"):
             query = parse_qs(parsed.query)
             path = query.get("path", ["data/processed/insights.jsonl"])[0]
@@ -121,6 +131,17 @@ class WorkbenchRequestHandler(BaseHTTPRequestHandler):
             state_path = query.get("state_path", ["data/runs/source_state.json"])[0]
             run_log = query.get("run_log", ["data/runs/fetch_runs.jsonl"])[0]
             self._write_json(api.source_health_report(state_path, run_log))
+            return
+
+        if parsed.path == "/api/sources/recommended":
+            query = parse_qs(parsed.query)
+            self._write_json(
+                api.recommended_sources(
+                    state_path=query.get("state_path", ["data/runs/source_state.json"])[0],
+                    profile=query.get("profile", [""])[0],
+                    limit=int(query.get("limit", ["25"])[0]),
+                )
+            )
             return
 
         if parsed.path.startswith("/api/"):
@@ -165,6 +186,14 @@ class WorkbenchRequestHandler(BaseHTTPRequestHandler):
 
             if parsed.path == "/api/jobs/daily-cycle":
                 result = api.trigger_daily_cycle(payload)
+                self._write_json(
+                    result,
+                    HTTPStatus.OK if result.get("ok") else HTTPStatus.BAD_REQUEST,
+                )
+                return
+
+            if parsed.path == "/api/jobs/retry-failed":
+                result = api.trigger_retry_failed_sources(payload)
                 self._write_json(
                     result,
                     HTTPStatus.OK if result.get("ok") else HTTPStatus.BAD_REQUEST,

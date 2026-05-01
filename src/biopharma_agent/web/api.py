@@ -217,6 +217,44 @@ def intelligence_brief(
     return brief
 
 
+def latest_intelligence_brief(
+    markdown_path: str | Path = "data/reports/latest_brief.md",
+    json_path: str | Path = "data/reports/latest_brief.json",
+) -> dict[str, Any]:
+    markdown_target = _safe_workspace_path(markdown_path)
+    json_target = _safe_workspace_path(json_path)
+    brief: dict[str, Any] = {}
+    if json_target.exists():
+        decoded = json.loads(json_target.read_text(encoding="utf-8") or "{}")
+        if not isinstance(decoded, dict):
+            raise ValueError("brief JSON artifact must contain an object")
+        brief = decoded
+    markdown = markdown_target.read_text(encoding="utf-8") if markdown_target.exists() else ""
+    if markdown and not brief.get("markdown"):
+        brief = dict(brief)
+        brief["markdown"] = markdown
+    artifacts = {
+        "markdown": str(markdown_target),
+        "json": str(json_target),
+    }
+    if brief:
+        brief.setdefault("artifacts", artifacts)
+    return {
+        "ok": bool(brief or markdown),
+        "brief": brief,
+        "markdown": markdown or str(brief.get("markdown") or ""),
+        "artifacts": artifacts,
+        "exists": {
+            "markdown": markdown_target.exists(),
+            "json": json_target.exists(),
+        },
+        "modified_at": {
+            "markdown": _mtime(markdown_target),
+            "json": _mtime(json_target),
+        },
+    }
+
+
 def get_document_detail(
     document_id: str,
     path: str | Path,
@@ -245,6 +283,82 @@ def source_health_report(
     source_state = list_source_state(state_path)
     runs = list_runs(run_log_path, limit=5, offset=0)
     return build_source_health_report(source_state, runs)
+
+
+def recommended_sources(
+    state_path: str | Path = "data/runs/source_state.json",
+    profile: str = "",
+    limit: int = 25,
+) -> dict[str, Any]:
+    source_state = list_source_state(state_path)
+    rows_by_source = {str(item.get("source") or ""): item for item in source_state.get("items", [])}
+    if profile:
+        candidate_names = get_source_profile(profile).source_names
+    else:
+        candidate_names = [source.name for source in list_default_sources()]
+    max_sources = max(1, min(int(limit), 100))
+    selected: list[str] = []
+    skipped_failed: list[str] = []
+    skipped_disabled: list[str] = []
+    for name in candidate_names:
+        row = rows_by_source.get(name, {})
+        if not bool(row.get("enabled", True)):
+            skipped_disabled.append(name)
+            continue
+        if row.get("last_status") == "failed":
+            skipped_failed.append(name)
+            continue
+        selected.append(name)
+        if len(selected) >= max_sources:
+            break
+    return {
+        "sources": selected,
+        "count": len(selected),
+        "profile": profile,
+        "state_path": source_state.get("path", str(state_path)),
+        "skipped_failed": skipped_failed,
+        "skipped_disabled": skipped_disabled,
+    }
+
+
+def trigger_retry_failed_sources(payload: dict[str, Any]) -> dict[str, Any]:
+    state_path = str(payload.get("state_path") or "data/runs/source_state.json")
+    source_state = list_source_state(state_path)
+    requested_sources = payload.get("sources")
+    requested = (
+        {str(item) for item in requested_sources if str(item).strip()}
+        if isinstance(requested_sources, list) and requested_sources
+        else set()
+    )
+    failed_sources = [
+        str(item.get("source"))
+        for item in source_state.get("items", [])
+        if item.get("last_status") == "failed"
+        and bool(item.get("enabled", True))
+        and (not requested or str(item.get("source")) in requested)
+    ]
+    if not failed_sources:
+        return {
+            "ok": True,
+            "record": {
+                "job_name": "retry-failed-sources",
+                "status": "skipped",
+                "result": [],
+                "metadata": {"sources": [], "state_path": source_state.get("path", state_path)},
+            },
+            "message": "No failed enabled sources are available for retry.",
+            "run_log": str(payload.get("run_log") or "data/runs/fetch_runs.jsonl"),
+        }
+    retry_payload = dict(payload)
+    retry_payload["sources"] = failed_sources
+    retry_payload["profile"] = ""
+    retry_payload.setdefault("limit", 1)
+    retry_payload.setdefault("fetch_details", True)
+    retry_payload.setdefault("clean_html_details", True)
+    retry_payload.setdefault("incremental", False)
+    result = trigger_fetch_job(retry_payload)
+    result["retry_sources"] = failed_sources
+    return result
 
 
 def trigger_daily_cycle(payload: dict[str, Any]) -> dict[str, Any]:
@@ -394,3 +508,9 @@ def _duration_seconds(started_at: datetime, completed_at: datetime) -> float:
     if completed_at.tzinfo is None:
         completed_at = completed_at.replace(tzinfo=timezone.utc)
     return max(0.0, (completed_at - started_at).total_seconds())
+
+
+def _mtime(path: Path) -> str:
+    if not path.exists():
+        return ""
+    return datetime.fromtimestamp(path.stat().st_mtime, timezone.utc).isoformat()
