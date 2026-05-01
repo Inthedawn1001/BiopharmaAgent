@@ -500,6 +500,7 @@ async function loadHealthAndConfig() {
   }
 
   await loadSources();
+  await loadDiagnostics();
 }
 
 async function loadSources() {
@@ -530,6 +531,115 @@ function renderSourceOptions(sources) {
     option.selected = defaults.has(source.name) && source.enabled;
     select.appendChild(option);
   }
+}
+
+async function loadDiagnostics() {
+  const output = $("#diagnostics-json");
+  const grid = $("#diagnostics-grid");
+  if (!output || !grid) {
+    return;
+  }
+  try {
+    const data = await getJson("/api/diagnostics");
+    renderDiagnostics(data);
+  } catch (error) {
+    output.textContent = JSON.stringify({ error: error.message }, null, 2);
+    grid.innerHTML = "";
+    $("#diagnostics-status").textContent = "failed";
+    $("#diagnostics-status").className = "badge status-failed";
+  }
+}
+
+function renderDiagnostics(data) {
+  $("#diagnostics-json").textContent = JSON.stringify(data, null, 2);
+  const status = data.status || "unknown";
+  const statusBadge = $("#diagnostics-status");
+  statusBadge.textContent = status;
+  statusBadge.className = `badge status-${status}`;
+
+  const grid = $("#diagnostics-grid");
+  grid.innerHTML = "";
+  const checks = data.checks || {};
+  for (const [name, check] of Object.entries(checks)) {
+    const card = document.createElement("article");
+    card.className = "diagnostic-card";
+
+    const header = document.createElement("div");
+    header.className = "diagnostic-header";
+    const title = document.createElement("h3");
+    title.textContent = name;
+    const badge = document.createElement("span");
+    badge.className = `badge status-${check.status || "warning"}`;
+    badge.textContent = check.status || "warning";
+    header.append(title, badge);
+
+    const facts = document.createElement("dl");
+    facts.className = "diagnostic-facts";
+    for (const [label, value] of diagnosticFacts(name, check)) {
+      const dt = document.createElement("dt");
+      dt.textContent = label;
+      const dd = document.createElement("dd");
+      dd.textContent = value;
+      facts.append(dt, dd);
+    }
+
+    const issues = document.createElement("div");
+    issues.className = "diagnostic-issues";
+    const issueList = Array.isArray(check.issues) ? check.issues : [];
+    issues.textContent = issueList.length ? issueList.join(" | ") : "No issues detected.";
+
+    card.append(header, facts, issues);
+    grid.appendChild(card);
+  }
+}
+
+function diagnosticFacts(name, check) {
+  if (name === "llm") {
+    return [
+      ["Provider", check.provider || "-"],
+      ["Model", check.model || "-"],
+      ["API key", check.has_api_key ? "configured" : "missing"],
+    ];
+  }
+  if (name === "storage") {
+    return [
+      ["Backend", check.backend || "-"],
+      ["Driver", check.driver_available == null ? "-" : String(check.driver_available)],
+      ["DSN", check.has_dsn == null ? "-" : String(check.has_dsn)],
+    ];
+  }
+  if (name === "raw_archive") {
+    return [
+      ["Backend", check.backend || "-"],
+      ["Bucket", check.bucket || "-"],
+      ["Driver", check.driver_available == null ? "-" : String(check.driver_available)],
+    ];
+  }
+  if (name === "sources") {
+    return [
+      ["Total", String(check.total ?? 0)],
+      ["Enabled", String(check.enabled ?? 0)],
+      ["Disabled", String(check.disabled ?? 0)],
+    ];
+  }
+  if (name === "docker") {
+    return [
+      ["Available", String(check.available ?? false)],
+      ["Version", check.version || "-"],
+      ["Compose", check.compose_version || "-"],
+    ];
+  }
+  if (name === "git") {
+    return [
+      ["Branch", check.branch || "-"],
+      ["Origin", check.origin || "-"],
+      ["Changes", String(check.pending_changes ?? 0)],
+    ];
+  }
+  return [
+    ["Version", check.version || "-"],
+    ["Executable", check.executable || "-"],
+  ];
 }
 
 function wireActions() {
@@ -699,6 +809,15 @@ function wireActions() {
       } catch {
         // Keep the job result visible even if a refresh fails.
       }
+    }
+  });
+  $("#load-diagnostics-button").addEventListener("click", async (event) => {
+    const button = event.currentTarget;
+    setLoading(button, true);
+    try {
+      await loadDiagnostics();
+    } finally {
+      setLoading(button, false);
     }
   });
 }

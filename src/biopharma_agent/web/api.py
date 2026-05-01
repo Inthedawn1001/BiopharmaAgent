@@ -17,6 +17,7 @@ from biopharma_agent.collection.runner import CollectionOptions, collect_sources
 from biopharma_agent.config import AgentSettings
 from biopharma_agent.contracts import utc_now
 from biopharma_agent.llm.factory import create_llm_provider
+from biopharma_agent.ops.diagnostics import diagnose_environment
 from biopharma_agent.ops.factory import create_feedback_repository
 from biopharma_agent.ops.feedback import FeedbackRecord, LocalFeedbackRepository
 from biopharma_agent.orchestration.scheduler import JobRunRecord, LocalRunLog
@@ -53,6 +54,10 @@ def config() -> dict[str, Any]:
         if app_settings.storage.backend == "jsonl"
         else "postgres",
     }
+
+
+def diagnostics() -> dict[str, Any]:
+    return diagnose_environment()
 
 
 def list_sources(kind: str = "", category: str = "") -> dict[str, Any]:

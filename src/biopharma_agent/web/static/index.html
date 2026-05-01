@@ -23,6 +23,7 @@
           <button class="nav-item" data-panel="review">人工复核</button>
           <button class="nav-item" data-panel="market">时序分析</button>
           <button class="nav-item" data-panel="settings">模型配置</button>
+          <button class="nav-item" data-panel="diagnostics">运行诊断</button>
         </nav>
         <div class="status-block">
           <span class="status-dot" id="health-dot"></span>
@@ -293,6 +294,15 @@
               <strong id="config-api-key">-</strong>
             </article>
           </div>
+        </section>
+
+        <section class="panel" id="panel-diagnostics">
+          <div class="diagnostics-toolbar">
+            <button id="load-diagnostics-button">刷新诊断</button>
+            <span id="diagnostics-status" class="badge">-</span>
+          </div>
+          <div id="diagnostics-grid" class="diagnostics-grid"></div>
+          <pre id="diagnostics-json" class="json-view compact"></pre>
         </section>
       </main>
     </div>

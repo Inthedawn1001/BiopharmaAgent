@@ -190,6 +190,13 @@ class WebApiTest(unittest.TestCase):
         self.assertIn("sec_biopharma_filings", names)
         self.assertEqual(names["sec_biopharma_filings"]["collector"], "sec_submissions")
 
+    def test_diagnostics_endpoint_shape(self):
+        data = api.diagnostics()
+
+        self.assertIn("status", data)
+        self.assertIn("llm", data["checks"])
+        self.assertIn("storage", data["checks"])
+
     def test_trigger_fetch_job_records_success(self):
         with tempfile.TemporaryDirectory(dir=Path.cwd()) as temp_dir, patch(
             "biopharma_agent.web.api.collect_sources",

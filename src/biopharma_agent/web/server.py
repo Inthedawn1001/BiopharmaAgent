@@ -28,6 +28,10 @@ class WorkbenchRequestHandler(BaseHTTPRequestHandler):
             self._write_json(api.config())
             return
 
+        if parsed.path == "/api/diagnostics":
+            self._write_json(api.diagnostics())
+            return
+
         if parsed.path == "/api/sources":
             query = parse_qs(parsed.query)
             self._write_json(

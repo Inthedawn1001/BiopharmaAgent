@@ -186,7 +186,8 @@ button.ghost {
 #panel-runs,
 #panel-review,
 #panel-market,
-#panel-settings {
+#panel-settings,
+#panel-diagnostics {
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -439,6 +440,16 @@ textarea {
   color: var(--danger);
 }
 
+.badge.status-warning {
+  background: #fff2d6;
+  color: var(--warning);
+}
+
+.badge.status-ok {
+  background: #dcfce7;
+  color: var(--success);
+}
+
 .run-summary-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -550,6 +561,63 @@ textarea {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.diagnostics-toolbar {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.diagnostics-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.diagnostic-card {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcfe;
+  padding: 12px;
+  min-width: 0;
+}
+
+.diagnostic-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.diagnostic-header h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.diagnostic-facts {
+  display: grid;
+  grid-template-columns: 100px minmax(0, 1fr);
+  gap: 6px 10px;
+  margin: 12px 0 0;
+  font-size: 13px;
+}
+
+.diagnostic-facts dt {
+  color: var(--muted);
+}
+
+.diagnostic-facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.diagnostic-issues {
+  margin-top: 12px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
 .metric,
 .settings-grid article {
   border: 1px solid var(--line);
@@ -634,7 +702,8 @@ textarea {
   .settings-grid,
   .form-grid,
   .run-summary-grid,
-  .detail-metrics {
+  .detail-metrics,
+  .diagnostics-grid {
     grid-template-columns: 1fr;
   }
 

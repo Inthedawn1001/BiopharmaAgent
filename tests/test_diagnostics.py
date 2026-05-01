@@ -1,0 +1,51 @@
+import os
+import tempfile
+import unittest
+from pathlib import Path
+from unittest.mock import patch
+
+from biopharma_agent.ops.diagnostics import diagnose_environment
+from biopharma_agent.web import api
+
+
+class DiagnosticsTest(unittest.TestCase):
+    def test_diagnostics_is_secret_safe(self):
+        with tempfile.TemporaryDirectory(dir=Path.cwd()) as temp_dir, patch.dict(
+            os.environ,
+            {
+                "BIOPHARMA_LLM_PROVIDER": "custom",
+                "BIOPHARMA_LLM_BASE_URL": "https://api.deepseek.com/v1",
+                "BIOPHARMA_LLM_API_KEY": "sk-test-secret",
+                "BIOPHARMA_LLM_MODEL": "deepseek-chat",
+            },
+            clear=False,
+        ):
+            data = diagnose_environment(temp_dir)
+
+            self.assertTrue(data["checks"]["llm"]["has_api_key"])
+            self.assertNotIn("sk-test-secret", repr(data))
+
+    def test_diagnostics_warns_when_llm_key_missing(self):
+        with tempfile.TemporaryDirectory(dir=Path.cwd()) as temp_dir, patch.dict(
+            os.environ,
+            {
+                "BIOPHARMA_LLM_PROVIDER": "openai",
+                "BIOPHARMA_LLM_API_KEY": "",
+            },
+            clear=False,
+        ):
+            data = diagnose_environment(temp_dir)
+
+            self.assertEqual(data["checks"]["llm"]["status"], "warning")
+            self.assertIn("BIOPHARMA_LLM_API_KEY", data["checks"]["llm"]["issues"][0])
+
+    def test_api_diagnostics_returns_source_counts(self):
+        data = api.diagnostics()
+
+        self.assertIn("checks", data)
+        self.assertGreaterEqual(data["checks"]["sources"]["enabled"], 1)
+        self.assertIn("sec_biopharma_filings", data["checks"]["sources"]["enabled_sources"])
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -25,6 +25,7 @@ from biopharma_agent.llm.factory import create_llm_provider
 from biopharma_agent.llm.types import ChatMessage, LLMRequest
 from biopharma_agent.ops.factory import create_feedback_repository
 from biopharma_agent.ops.feedback import FeedbackRecord
+from biopharma_agent.ops.diagnostics import diagnose_environment
 from biopharma_agent.ops.llm_observer import ObservedLLMProvider
 from biopharma_agent.ops.logging import configure_logging
 from biopharma_agent.ops.metrics import InMemoryMetrics
@@ -39,6 +40,7 @@ def main(argv: list[str] | None = None) -> int:
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     subparsers.add_parser("plan", help="Print the current development execution plan.")
+    subparsers.add_parser("diagnose", help="Print a secret-safe runtime diagnostics report.")
     subparsers.add_parser("llm-check", help="Send a small health-check request to the LLM.")
 
     analyze = subparsers.add_parser("analyze-text", help="Analyze text with the configured LLM.")
@@ -239,6 +241,10 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "plan":
         _print_plan()
+        return 0
+
+    if args.command == "diagnose":
+        print(json.dumps(diagnose_environment(), ensure_ascii=False, indent=2))
         return 0
 
     if args.command == "analyze-deterministic":
