@@ -262,9 +262,45 @@ Start the local web workbench:
 PYTHONPATH=src python3 -m biopharma_agent.cli serve --host 127.0.0.1 --port 8765
 ```
 
-Then visit `http://127.0.0.1:8765`. The workbench includes document analysis, document inbox, market intelligence briefs, run monitoring, manual fetch triggers, one-click daily intelligence cycles, LLM extraction, task routing, human feedback, feedback browsing, time-series analysis, model settings, and runtime diagnostics. The inbox supports filtering by source, event type, risk, and keyword, plus pagination and sorting. The market panel can summarize stored analysis results into a Markdown intelligence brief. The run monitor can trigger selected sources, run the daily cycle, enable incremental collection, show source health, failure diagnosis, prioritized source alerts, and generate a Markdown source health report from the source state and run log. It uses the configured LLM for real analysis by default. If the API key is missing, the job fails and writes a run log for troubleshooting. Runtime diagnostics check LLM, storage, raw archive, sources, Docker, and GitHub sync state. The diagnostics API reports whether credentials are present but never returns secret values.
+Then visit `http://127.0.0.1:8765`. The workbench includes document analysis, document inbox, market intelligence briefs, run monitoring, manual fetch triggers, one-click daily intelligence cycles, LLM extraction, task routing, human feedback, feedback browsing, time-series analysis, model settings, and runtime diagnostics. The inbox supports filtering by source, event type, risk, and keyword, plus pagination and sorting. The market panel can summarize stored analysis results into a Markdown intelligence brief. The run monitor can trigger selected sources, run the daily cycle, enable incremental collection, show source health, failure diagnosis, prioritized source alerts, and generate a Markdown source health report from the source state and run log. It uses the configured LLM for real analysis by default. If the API key is missing, the job fails and writes a run log for troubleshooting. Runtime diagnostics check LLM, storage, raw archive, sources, Docker, and GitHub sync state. The diagnostics API reports whether credentials are present but never returns secret values. The sidebar language switcher can toggle the workbench between English and Chinese; the preference is saved in the browser.
 
 See [docs/production_runbook.md](docs/production_runbook.md) for the recommended daily operating loop, storage profiles, Airflow settings, readiness gate, and failure handling.
+
+## 中文说明
+
+Biopharma Agent 是一个面向生物医药产业与资本市场情报的本地 Agent 工具。当前主线已经形成完整闭环：抓取权威数据源、调用配置好的大语言模型进行结构化分析、维护来源健康状态、生成每日情报简报，并通过质量闸门检查输出是否足够可靠。
+
+快速启动本地工作台：
+
+```bash
+PYTHONPATH=src python3 -m biopharma_agent.cli serve --host 127.0.0.1 --port 8765
+```
+
+打开 `http://127.0.0.1:8765` 后，可以在左侧边栏使用 `EN / 中文` 切换界面语言。中文界面覆盖文档分析、文档收件箱、运行监控、人工复核、时间序列、模型设置和运行诊断等主要操作区。
+
+运行每日情报循环：
+
+```bash
+PYTHONPATH=src python3 -m biopharma_agent.cli daily-cycle \
+  --profile core_intelligence \
+  --limit 1 \
+  --incremental \
+  --report-md data/reports/latest_brief.md \
+  --report-json data/reports/latest_brief.json
+```
+
+运行质量闸门：
+
+```bash
+PYTHONPATH=src python3 -m biopharma_agent.cli quality-gate \
+  --analysis-path data/processed/insights.jsonl \
+  --brief-md data/reports/latest_brief.md \
+  --source-state data/runs/source_state.json \
+  --require-brief \
+  --require-source-state
+```
+
+实际调用模型前，需要通过环境变量配置 `BIOPHARMA_LLM_PROVIDER`、`BIOPHARMA_LLM_BASE_URL`、`BIOPHARMA_LLM_MODEL` 和 `BIOPHARMA_LLM_API_KEY`。密钥只应保存在本地环境或密钥管理系统中，不要提交到仓库。
 
 ## Architecture Entry Points
 
@@ -284,10 +320,10 @@ See [docs/production_runbook.md](docs/production_runbook.md) for the recommended
 
 ## Verification Snapshot
 
-Latest local verification on May 1, 2026:
+Latest local verification on May 2, 2026:
 
-- Unit tests: `PYTHONPATH=src python -m unittest discover -s tests` -> 115 passed, 1 skipped
+- Unit tests: `PYTHONPATH=src python -m unittest discover -s tests` -> 144 passed, 1 skipped
 - Storage smoke: `scripts/run_storage_smoke.sh` -> PostgreSQL and MinIO checks passed without external news-source dependency
 - Full-stack smoke: `scripts/run_full_stack_smoke.sh` -> PostgreSQL migration checked, MinIO raw object verified, FDA real collection selected 1 document and analyzed 1 document
 - Airflow smoke: `scripts/run_airflow_smoke.sh` -> DAG loaded, daily cycle succeeded with 1 selected document, source state was written, and brief artifacts were generated
-- Content hygiene: tracked files contain no Chinese text, real host name, real local user name, or committed API key
+- Content hygiene: tracked files contain no real host name, real local user name, or committed API key. Chinese text is intentionally present in the bilingual UI and README.

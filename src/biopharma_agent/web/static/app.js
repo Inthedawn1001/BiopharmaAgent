@@ -2,6 +2,9 @@ const sampleText = `A biotech company announced Series B financing to advance a 
 
 const state = {
   lastResult: null,
+  lastDocumentsData: null,
+  lastRunsData: null,
+  lastBrief: null,
   documentsOffset: 0,
   documentsLimit: 25,
   documentsHasMore: false,
@@ -15,18 +18,310 @@ const state = {
   selectedProfile: "core_intelligence",
   sourceState: [],
   sourceStateData: null,
+  language: "en",
 };
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => Array.from(document.querySelectorAll(selector));
+const textNodeOriginals = new WeakMap();
+
+const translations = {
+  zh: {
+    "Biopharma Agent Workbench": "生物医药 Agent 工作台",
+    "Biopharma Agent": "生物医药 Agent",
+    "Industry and capital-market intelligence": "产业与资本市场情报",
+    "Document Analysis": "文档分析",
+    "Document Inbox": "文档收件箱",
+    "Run Monitor": "运行监控",
+    "Human Review": "人工复核",
+    "Time Series": "时间序列",
+    "Model Settings": "模型设置",
+    "Runtime Diagnostics": "运行诊断",
+    "Connecting": "连接中",
+    "Workbench": "工作台",
+    "Load Sample": "载入示例",
+    "Clear": "清空",
+    "Raw Text": "原始文本",
+    "Local Analysis": "本地分析",
+    "LLM Extraction": "大模型抽取",
+    "Task Routing": "任务路由",
+    "Overview": "概览",
+    "JSON": "JSON",
+    "Sentiment": "情绪",
+    "Risk Level": "风险等级",
+    "Keywords": "关键词",
+    "Summary": "摘要",
+    "Keywords / Events": "关键词 / 事件",
+    "Waiting for analysis.": "等待分析。",
+    "Results File": "结果文件",
+    "Search": "搜索",
+    "Source": "来源",
+    "Event": "事件",
+    "Risk": "风险",
+    "Sort": "排序",
+    "All": "全部",
+    "Newest first": "最新优先",
+    "Oldest first": "最早优先",
+    "Body": "正文",
+    "Model": "模型",
+    "Time": "时间",
+    "Refresh Documents": "刷新文档",
+    "0 records": "0 条记录",
+    "Previous": "上一页",
+    "Next": "下一页",
+    "Page 1": "第 1 页",
+    "Select a document to view details.": "选择一篇文档查看详情。",
+    "Sources": "数据源",
+    "Items per Source": "每个来源条数",
+    "Result File": "结果文件",
+    "Source State File": "来源状态文件",
+    "LLM analysis": "大模型分析",
+    "Fetch details": "抓取详情",
+    "Clean body text": "清洗正文",
+    "Incremental only": "仅增量",
+    "Select Healthy Sources": "选择健康来源",
+    "Retry Failed Sources": "重试失败来源",
+    "Trigger Fetch": "触发抓取",
+    "Run Daily Cycle": "运行每日情报循环",
+    "Waiting for a job.": "等待任务。",
+    "Source Health": "来源健康",
+    "0 sources": "0 个来源",
+    "Generate Report": "生成报告",
+    "Refresh Source Health": "刷新来源健康",
+    "Backend": "后端",
+    "Health": "健康度",
+    "Selected": "已选择",
+    "Skipped": "已跳过",
+    "Generate a source report to view Markdown.": "生成来源报告后查看 Markdown。",
+    "Status": "状态",
+    "Success": "成功",
+    "Failed": "失败",
+    "Never run": "从未运行",
+    "Collector": "采集器",
+    "Diagnosis": "诊断",
+    "Seen": "已见",
+    "Analyzed": "已分析",
+    "Updated": "更新时间",
+    "Select a source to view health details.": "选择一个来源查看健康详情。",
+    "Run Log File": "运行日志文件",
+    "Refresh Runs": "刷新运行",
+    "Latest Status": "最新状态",
+    "Latest Completion": "最新完成时间",
+    "Job": "任务",
+    "Duration": "耗时",
+    "Result": "结果",
+    "Completed": "完成时间",
+    "Select a run to view details.": "选择一次运行查看详情。",
+    "Document ID": "文档 ID",
+    "Reviewer": "复核人",
+    "Decision": "决策",
+    "Accept": "接受",
+    "Correct": "修正",
+    "Reject": "拒绝",
+    "Comment": "评论",
+    "Submit Feedback": "提交反馈",
+    "Feedback File": "反馈文件",
+    "Refresh Feedback": "刷新反馈",
+    "Analysis File": "分析文件",
+    "Documents": "文档数",
+    "Markdown Report": "Markdown 报告",
+    "JSON Report": "JSON 报告",
+    "Generate Brief": "生成简报",
+    "Load Latest Brief": "加载最新简报",
+    "Generate a brief to view Markdown.": "生成简报后查看 Markdown。",
+    "Market Series": "市场序列",
+    "Numeric Series": "数值序列",
+    "Analyze Trend": "分析趋势",
+    "Provider": "供应商",
+    "Base URL": "基础 URL",
+    "API Key": "API 密钥",
+    "Refresh Diagnostics": "刷新诊断",
+    "Title, source, summary": "标题、来源、摘要",
+    "Source or category": "来源或类别",
+    "Processing": "处理中",
+    "No records yet.": "暂无记录。",
+    "No comment": "暂无评论",
+    "No summary": "暂无摘要",
+    "No run records yet.": "暂无运行记录。",
+    "No sources match the current filters.": "没有来源匹配当前筛选。",
+    "No source state yet.": "暂无来源状态。",
+    "No active source alerts": "暂无活跃来源告警",
+    "Collection health is clear for the current state file.": "当前状态文件中的采集健康情况正常。",
+    "Source alert": "来源告警",
+    "Retry": "重试",
+    "Top Event": "主要事件",
+    "Top Risk": "主要风险",
+    "Top Source": "主要来源",
+    "Artifacts": "产物",
+    "Untitled": "未命名",
+    "Untitled document": "未命名文档",
+    "Enter text to analyze.": "请输入要分析的文本。",
+    "Loading details.": "正在加载详情。",
+    "Open Source": "打开来源",
+    "Load Body": "载入正文",
+    "Quality": "质量",
+    "Characters": "字符数",
+    "Words": "词数",
+    "Method": "方法",
+    "Cleaned": "已清洗",
+    "yes": "是",
+    "no": "否",
+    "Ratio": "比例",
+    "Body Preview": "正文预览",
+    "No body text available.": "暂无正文文本。",
+    "Local service online": "本地服务在线",
+    "Service warning": "服务警告",
+    "Service offline": "服务离线",
+    "Configured": "已配置",
+    "Missing": "缺失",
+    "Unavailable": "不可用",
+    "configured": "已配置",
+    "missing": "缺失",
+    "uncategorized": "未分类",
+    "mixed": "混合",
+    "failed": "失败",
+    "warning": "警告",
+    "No issues detected.": "未发现问题。",
+    "Available": "可用",
+    "Version": "版本",
+    "Executable": "可执行文件",
+    "Driver": "驱动",
+    "Bucket": "存储桶",
+    "Path": "路径",
+    "URI": "URI",
+    "Total": "总数",
+    "Enabled": "已启用",
+    "Disabled": "已禁用",
+    "Branch": "分支",
+    "Origin": "远端",
+    "Changes": "变更数",
+  },
+};
+
+const reverseTranslations = Object.fromEntries(
+  Object.entries(translations.zh).map(([english, localized]) => [localized, english]),
+);
+
+function t(text) {
+  if (state.language === "zh") {
+    return translations.zh[text] || text;
+  }
+  return reverseTranslations[text] || text;
+}
+
+function formatRecordsCount(rows, filteredTotal, total) {
+  if (state.language === "zh") {
+    return `${rows} 条记录 / ${filteredTotal} 条筛选结果 / ${total} 条总计`;
+  }
+  return `${rows} records / ${filteredTotal} filtered / ${total} total`;
+}
+
+function formatRunsCount(rows, total) {
+  return state.language === "zh" ? `${rows} 次运行 / ${total} 次总计` : `${rows} runs / ${total} total`;
+}
+
+function formatPage(offset, limit) {
+  const page = Math.floor((offset || 0) / (limit || 1)) + 1;
+  return state.language === "zh" ? `第 ${page} 页` : `Page ${page}`;
+}
+
+function formatSourceStateCount(visible, total, summary) {
+  if (state.language === "zh") {
+    return `${visible} 个可见 / ${total} 个来源 · ${summary.success ?? 0} 个健康 · ${
+      summary.failed ?? 0
+    } 个失败 · ${summary.seen_documents ?? 0} 篇已见文档`;
+  }
+  return `${visible} visible / ${total} sources · ${summary.success ?? 0} healthy · ${
+    summary.failed ?? 0
+  } failed · ${summary.seen_documents ?? 0} seen documents`;
+}
+
+function formatRunResultSummary(count, selected, analyzed, documents = null) {
+  if (state.language === "zh") {
+    const base = `${count} 个来源 · ${selected} 条已选择 · ${analyzed} 条已分析`;
+    return documents == null ? base : `${base} · ${documents} 篇简报文档`;
+  }
+  const base = `${count} sources · ${selected} selected · ${analyzed} analyzed`;
+  return documents == null ? base : `${base} · ${documents} brief docs`;
+}
+
+function translateStaticText(root = document.body) {
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+    acceptNode(node) {
+      const parent = node.parentElement;
+      if (!parent || ["SCRIPT", "STYLE", "TEXTAREA"].includes(parent.tagName)) {
+        return NodeFilter.FILTER_REJECT;
+      }
+      return node.nodeValue.trim() ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+    },
+  });
+  const nodes = [];
+  while (walker.nextNode()) {
+    nodes.push(walker.currentNode);
+  }
+  for (const node of nodes) {
+    const value = node.nodeValue;
+    const prefix = value.match(/^\s*/)?.[0] || "";
+    const suffix = value.match(/\s*$/)?.[0] || "";
+    const trimmed = value.trim();
+    const original = textNodeOriginals.get(node) || reverseTranslations[trimmed] || trimmed;
+    textNodeOriginals.set(node, original);
+    node.nodeValue = `${prefix}${t(original)}${suffix}`;
+  }
+}
+
+function translatePlaceholders() {
+  $$("[placeholder]").forEach((element) => {
+    element.dataset.i18nPlaceholder ||= reverseTranslations[element.placeholder] || element.placeholder;
+    element.placeholder = t(element.dataset.i18nPlaceholder);
+  });
+}
+
+function setLanguage(language) {
+  state.language = language === "zh" ? "zh" : "en";
+  localStorage.setItem("biopharma-agent-language", state.language);
+  document.documentElement.lang = state.language === "zh" ? "zh-CN" : "en";
+  document.title = t("Biopharma Agent Workbench");
+  $$(".language-option").forEach((button) => {
+    button.classList.toggle("active", button.dataset.language === state.language);
+    button.setAttribute("aria-pressed", String(button.dataset.language === state.language));
+  });
+  translateStaticText();
+  translatePlaceholders();
+  refreshLanguageSensitiveViews();
+}
+
+function refreshLanguageSensitiveViews() {
+  const activePanel = $(".nav-item.active")?.dataset.panel || "document";
+  activatePanel(activePanel);
+  renderResult(state.lastResult || {});
+  if (state.lastDocumentsData) {
+    renderDocumentTable(state.lastDocumentsData);
+  }
+  if (state.lastRunsData) {
+    renderRunsTable(state.lastRunsData);
+  }
+  if (state.sourceStateData) {
+    renderSourceState(state.sourceStateData);
+  }
+  if (state.lastBrief) {
+    renderBrief(state.lastBrief);
+  }
+}
 
 function setLoading(button, loading) {
   if (!button) {
     return;
   }
   button.disabled = loading;
-  button.dataset.originalText ||= button.textContent;
-  button.textContent = loading ? "Processing" : button.dataset.originalText;
+  if (loading) {
+    button.dataset.loadingText = button.textContent;
+    button.textContent = t("Processing");
+  } else {
+    button.textContent = button.dataset.loadingText || button.textContent;
+    delete button.dataset.loadingText;
+    translateStaticText(button);
+  }
 }
 
 async function requestJson(path, payload) {
@@ -55,7 +350,7 @@ function renderResult(result) {
   state.lastResult = result;
   $("#result-json").textContent = JSON.stringify(result, null, 2);
   $("#summary-output").textContent =
-    result.summary || result.reason || result.error || "Waiting for analysis.";
+    result.summary || result.reason || result.error || t("Waiting for analysis.");
 
   const sentiment = result.sentiment || {};
   const risk = result.risk || {};
@@ -88,7 +383,7 @@ function renderRecords(containerSelector, records, mode) {
   if (!records.length) {
     const empty = document.createElement("p");
     empty.className = "record-summary";
-    empty.textContent = "No records yet.";
+    empty.textContent = t("No records yet.");
     container.appendChild(empty);
     return;
   }
@@ -117,8 +412,8 @@ function renderRecords(containerSelector, records, mode) {
     summary.className = "record-summary";
     summary.textContent =
       mode === "feedback"
-        ? record.comment || "No comment"
-        : insight.summary || doc.text || "No summary";
+        ? record.comment || t("No comment")
+        : insight.summary || doc.text || t("No summary");
 
     item.append(title, meta, summary);
     item.addEventListener("click", () => {
@@ -134,13 +429,16 @@ function renderRecords(containerSelector, records, mode) {
 function renderDocumentTable(data) {
   const rows = data.items || [];
   const filteredTotal = data.filtered_total ?? data.total ?? rows.length;
-  $("#documents-count").textContent =
-    `${rows.length} records / ${filteredTotal} filtered / ${data.total ?? rows.length} total`;
+  state.lastDocumentsData = data;
+  $("#documents-count").textContent = formatRecordsCount(
+    rows.length,
+    filteredTotal,
+    data.total ?? rows.length,
+  );
   state.documentsHasMore = Boolean(data.has_more);
   $("#documents-prev-button").disabled = (data.offset || 0) <= 0;
   $("#documents-next-button").disabled = !state.documentsHasMore;
-  $("#documents-page-label").textContent =
-    `Page ${Math.floor((data.offset || 0) / (data.limit || state.documentsLimit)) + 1}`;
+  $("#documents-page-label").textContent = formatPage(data.offset || 0, data.limit || state.documentsLimit);
   updateFacetSelect("#documents-source-filter", data.facets?.sources || []);
   updateFacetSelect("#documents-event-filter", data.facets?.event_types || []);
   updateFacetSelect("#documents-risk-filter", data.facets?.risks || []);
@@ -151,7 +449,7 @@ function renderDocumentTable(data) {
     const tr = document.createElement("tr");
     const td = document.createElement("td");
     td.colSpan = 7;
-    td.textContent = "No records yet.";
+    td.textContent = t("No records yet.");
     tr.appendChild(td);
     body.appendChild(tr);
     renderDocumentDetail(null);
@@ -177,6 +475,7 @@ function renderDocumentTable(data) {
 function renderRunsTable(data) {
   const rows = data.items || [];
   const summary = data.summary || {};
+  state.lastRunsData = data;
   state.runsHasMore = Boolean(data.has_more);
   $("#runs-success").textContent = String(summary.success ?? 0);
   $("#runs-failed").textContent = String(summary.failed ?? 0);
@@ -185,12 +484,10 @@ function renderRunsTable(data) {
   $("#runs-selected").textContent = String(summary.selected ?? 0);
   $("#runs-analyzed").textContent = String(summary.analyzed ?? 0);
   $("#runs-skipped").textContent = String(summary.skipped_seen ?? 0);
-  $("#runs-count").textContent =
-    `${rows.length} runs / ${data.total ?? rows.length} total`;
+  $("#runs-count").textContent = formatRunsCount(rows.length, data.total ?? rows.length);
   $("#runs-prev-button").disabled = (data.offset || 0) <= 0;
   $("#runs-next-button").disabled = !state.runsHasMore;
-  $("#runs-page-label").textContent =
-    `Page ${Math.floor((data.offset || 0) / (data.limit || state.runsLimit)) + 1}`;
+  $("#runs-page-label").textContent = formatPage(data.offset || 0, data.limit || state.runsLimit);
 
   const body = $("#runs-table-body");
   body.innerHTML = "";
@@ -198,10 +495,10 @@ function renderRunsTable(data) {
     const tr = document.createElement("tr");
     const td = document.createElement("td");
     td.colSpan = 6;
-    td.textContent = "No run records yet.";
+    td.textContent = t("No run records yet.");
     tr.appendChild(td);
     body.appendChild(tr);
-    $("#run-detail").textContent = "Select a run to view details.";
+    $("#run-detail").textContent = t("Select a run to view details.");
     return;
   }
 
@@ -228,8 +525,7 @@ function renderSourceState(data) {
   state.sourceStateData = data;
   const summary = data.summary || {};
   const filteredRows = filterSourceStateRows(rows);
-  $("#source-state-count").textContent =
-    `${filteredRows.length} visible / ${rows.length} sources · ${summary.success ?? 0} healthy · ${summary.failed ?? 0} failed · ${summary.seen_documents ?? 0} seen documents`;
+  $("#source-state-count").textContent = formatSourceStateCount(filteredRows.length, rows.length, summary);
   $("#source-state-backend").textContent = data.backend || "-";
   $("#source-state-health").textContent = `${Math.round(Number(summary.health_ratio || 0) * 100)}%`;
   $("#source-state-selected").textContent = String(summary.last_selected ?? 0);
@@ -243,7 +539,7 @@ function renderSourceState(data) {
     const tr = document.createElement("tr");
     const td = document.createElement("td");
     td.colSpan = 8;
-    td.textContent = rows.length ? "No sources match the current filters." : "No source state yet.";
+    td.textContent = rows.length ? t("No sources match the current filters.") : t("No source state yet.");
     tr.appendChild(td);
     body.appendChild(tr);
     return;
@@ -278,9 +574,9 @@ function renderSourceAlerts(alerts) {
     const item = document.createElement("article");
     item.className = "source-alert source-alert-ok";
     const title = document.createElement("strong");
-    title.textContent = "No active source alerts";
+    title.textContent = t("No active source alerts");
     const message = document.createElement("span");
-    message.textContent = "Collection health is clear for the current state file.";
+    message.textContent = t("Collection health is clear for the current state file.");
     item.append(title, message);
     container.appendChild(item);
     return;
@@ -294,13 +590,13 @@ function renderSourceAlerts(alerts) {
     badge.textContent = alert.level || "info";
     const body = document.createElement("div");
     const title = document.createElement("strong");
-    title.textContent = `${alert.title || "Source alert"} · ${alert.source || "-"}`;
+    title.textContent = `${alert.title || t("Source alert")} · ${alert.source || "-"}`;
     const message = document.createElement("span");
     message.textContent = alert.action || alert.message || "-";
     const retry = document.createElement("button");
     retry.type = "button";
     retry.className = "ghost mini-action";
-    retry.textContent = "Retry";
+    retry.textContent = t("Retry");
     retry.addEventListener("click", async () => {
       await retryFailedSources([alert.source]);
     });
@@ -311,6 +607,7 @@ function renderSourceAlerts(alerts) {
 }
 
 function renderBrief(brief) {
+  state.lastBrief = brief;
   $("#brief-output").textContent = brief.markdown || JSON.stringify(brief, null, 2);
   const summary = brief.summary || "";
   const grid = $("#brief-summary-grid");
@@ -319,11 +616,11 @@ function renderBrief(brief) {
   const topEvent = (brief.event_counts || [])[0]?.name || "-";
   const topSource = (brief.source_counts || [])[0]?.name || "-";
   for (const [label, value] of [
-    ["Documents", String(brief.document_count ?? 0)],
-    ["Top Event", topEvent],
-    ["Top Risk", topRisk],
-    ["Top Source", topSource],
-    ["Summary", summary],
+    [t("Documents"), String(brief.document_count ?? 0)],
+    [t("Top Event"), topEvent],
+    [t("Top Risk"), topRisk],
+    [t("Top Source"), topSource],
+    [t("Summary"), summary],
   ]) {
     const card = document.createElement("article");
     card.className = "metric compact";
@@ -339,7 +636,7 @@ function renderBrief(brief) {
     const card = document.createElement("article");
     card.className = "metric compact";
     const span = document.createElement("span");
-    span.textContent = "Artifacts";
+    span.textContent = t("Artifacts");
     const strong = document.createElement("strong");
     strong.textContent = [artifacts.markdown, artifacts.json].filter(Boolean).join(" · ");
     card.append(span, strong);
@@ -377,7 +674,7 @@ function updateSourceStateCollectorFilter(rows) {
   select.innerHTML = "";
   const all = document.createElement("option");
   all.value = "";
-  all.textContent = "All";
+  all.textContent = t("All");
   select.appendChild(all);
   for (const collector of collectors) {
     const option = document.createElement("option");
@@ -449,13 +746,13 @@ function runResultSummary(row) {
   if (Array.isArray(row.result)) {
     const selected = row.result.reduce((total, item) => total + Number(item.selected || 0), 0);
     const analyzed = row.result.reduce((total, item) => total + Number(item.analyzed || 0), 0);
-    return `${row.result.length} sources · ${selected} selected · ${analyzed} analyzed`;
+    return formatRunResultSummary(row.result.length, selected, analyzed);
   }
   if (row.result && Array.isArray(row.result.fetch)) {
     const selected = row.result.fetch.reduce((total, item) => total + Number(item.selected || 0), 0);
     const analyzed = row.result.fetch.reduce((total, item) => total + Number(item.analyzed || 0), 0);
     const documents = Number(row.result.brief?.document_count || 0);
-    return `${row.result.fetch.length} sources · ${selected} selected · ${analyzed} analyzed · ${documents} brief docs`;
+    return formatRunResultSummary(row.result.fetch.length, selected, analyzed, documents);
   }
   return row.result == null ? "-" : "ok";
 }
@@ -464,7 +761,7 @@ function titleCell(row) {
   const td = document.createElement("td");
   const title = document.createElement("div");
   title.className = "table-title";
-  title.textContent = row.title || "Untitled";
+  title.textContent = row.title || t("Untitled");
   const summary = document.createElement("div");
   summary.className = "table-subtext";
   summary.textContent = row.summary || row.url || "";
@@ -495,7 +792,7 @@ function qualityCell(row) {
   const meta = document.createElement("div");
   meta.className = "table-subtext compact";
   const method = row.extraction_method ? ` · ${row.extraction_method}` : "";
-  meta.textContent = `${row.text_length || 0} chars${method}`;
+  meta.textContent = state.language === "zh" ? `${row.text_length || 0} 字符${method}` : `${row.text_length || 0} chars${method}`;
   td.append(quality, meta);
   return td;
 }
@@ -506,7 +803,7 @@ function updateFacetSelect(selector, options) {
   select.innerHTML = "";
   const all = document.createElement("option");
   all.value = "";
-  all.textContent = "All";
+  all.textContent = t("All");
   select.appendChild(all);
   for (const option of options) {
     const element = document.createElement("option");
@@ -527,7 +824,7 @@ function shortDate(value) {
 async function runAnalysis(path, button) {
   const text = $("#document-input").value.trim();
   if (!text) {
-    renderResult({ error: "Enter text to analyze." });
+    renderResult({ error: t("Enter text to analyze.") });
     return;
   }
   setLoading(button, true);
@@ -567,14 +864,14 @@ function renderDocumentDetail(detail) {
   if (!detail) {
     const empty = document.createElement("div");
     empty.className = "detail-empty";
-    empty.textContent = "Select a document to view details.";
+    empty.textContent = t("Select a document to view details.");
     container.appendChild(empty);
     return;
   }
   if (detail.loading) {
     const loading = document.createElement("div");
     loading.className = "detail-empty";
-    loading.textContent = "Loading details.";
+    loading.textContent = t("Loading details.");
     container.appendChild(loading);
     return;
   }
@@ -594,7 +891,7 @@ function renderDocumentDetail(detail) {
 
   const titleWrap = document.createElement("div");
   const title = document.createElement("h3");
-  title.textContent = doc.title || row.title || "Untitled";
+  title.textContent = doc.title || row.title || t("Untitled");
   const meta = document.createElement("p");
   meta.className = "record-meta";
   meta.textContent = [
@@ -614,12 +911,12 @@ function renderDocumentDetail(detail) {
     link.href = doc.url;
     link.target = "_blank";
     link.rel = "noreferrer";
-    link.textContent = "Open Source";
+    link.textContent = t("Open Source");
     actionWrap.appendChild(link);
   }
   const loadButton = document.createElement("button");
   loadButton.className = "ghost";
-  loadButton.textContent = "Load Body";
+  loadButton.textContent = t("Load Body");
   loadButton.addEventListener("click", () => {
     $("#document-input").value = doc.text || doc.text_preview || "";
     activatePanel("document");
@@ -630,12 +927,12 @@ function renderDocumentDetail(detail) {
   const metrics = document.createElement("div");
   metrics.className = "detail-metrics";
   for (const [label, value] of [
-    ["Quality", quality.label || "-"],
-    ["Characters", String(quality.text_length ?? 0)],
-    ["Words", String(quality.word_count ?? 0)],
-    ["Method", quality.extraction_method || "-"],
-    ["Cleaned", quality.html_cleaned ? "yes" : "no"],
-    ["Ratio", quality.clean_ratio == null ? "-" : String(quality.clean_ratio)],
+    [t("Quality"), quality.label || "-"],
+    [t("Characters"), String(quality.text_length ?? 0)],
+    [t("Words"), String(quality.word_count ?? 0)],
+    [t("Method"), quality.extraction_method || "-"],
+    [t("Cleaned"), quality.html_cleaned ? t("yes") : t("no")],
+    [t("Ratio"), quality.clean_ratio == null ? "-" : String(quality.clean_ratio)],
   ]) {
     const metric = document.createElement("article");
     metric.className = "metric compact";
@@ -649,10 +946,10 @@ function renderDocumentDetail(detail) {
 
   const previewTitle = document.createElement("div");
   previewTitle.className = "section-title";
-  previewTitle.textContent = "Body Preview";
+  previewTitle.textContent = t("Body Preview");
   const preview = document.createElement("pre");
   preview.className = "document-preview";
-  preview.textContent = doc.text_preview || doc.text || "No body text available.";
+  preview.textContent = doc.text_preview || doc.text || t("No body text available.");
 
   container.append(header, metrics, previewTitle, preview);
 }
@@ -681,16 +978,16 @@ function activatePanel(panelName) {
   $$(".panel").forEach((panel) => panel.classList.remove("active"));
   $(`#panel-${panelName}`).classList.add("active");
   const activeNav = $(`.nav-item[data-panel="${panelName}"]`);
-  $("#panel-title").textContent = activeNav ? activeNav.textContent : "Workbench";
+  $("#panel-title").textContent = activeNav ? activeNav.textContent : t("Workbench");
 }
 
 async function loadHealthAndConfig() {
   try {
     const health = await fetch("/api/health").then((response) => response.json());
     $("#health-dot").classList.toggle("ok", health.status === "ok");
-    $("#health-text").textContent = health.status === "ok" ? "Local service online" : "Service warning";
+    $("#health-text").textContent = health.status === "ok" ? t("Local service online") : t("Service warning");
   } catch {
-    $("#health-text").textContent = "Service offline";
+    $("#health-text").textContent = t("Service offline");
   }
 
   try {
@@ -698,9 +995,9 @@ async function loadHealthAndConfig() {
     $("#config-provider").textContent = config.provider;
     $("#config-model").textContent = config.model;
     $("#config-base-url").textContent = config.base_url;
-    $("#config-api-key").textContent = config.has_api_key ? "Configured" : "Missing";
+    $("#config-api-key").textContent = config.has_api_key ? t("Configured") : t("Missing");
   } catch {
-    $("#config-provider").textContent = "Unavailable";
+    $("#config-provider").textContent = t("Unavailable");
   }
 
   await loadSources();
@@ -739,7 +1036,9 @@ function renderSourceOptions(sources) {
   for (const source of sources) {
     const option = document.createElement("option");
     option.value = source.name;
-    option.textContent = `${source.name} · ${source.collector || "feed"} · ${source.category || "uncategorized"}`;
+    option.textContent = `${source.name} · ${source.collector || "feed"} · ${
+      source.category || t("uncategorized")
+    }`;
     option.disabled = !source.enabled;
     option.selected = defaults.has(source.name) && source.enabled;
     select.appendChild(option);
@@ -779,7 +1078,10 @@ function renderSourceProfiles() {
     const label = document.createElement("strong");
     label.textContent = profile.label || profile.name;
     const meta = document.createElement("span");
-    meta.textContent = `${profile.source_names.length} sources · ${profile.category || "mixed"}`;
+    meta.textContent =
+      state.language === "zh"
+        ? `${profile.source_names.length} 个来源 · ${profile.category || t("mixed")}`
+        : `${profile.source_names.length} sources · ${profile.category || t("mixed")}`;
     button.append(label, meta);
 
     button.addEventListener("click", () => {
@@ -871,7 +1173,7 @@ async function loadDiagnostics() {
   } catch (error) {
     output.textContent = JSON.stringify({ error: error.message }, null, 2);
     grid.innerHTML = "";
-    $("#diagnostics-status").textContent = "failed";
+    $("#diagnostics-status").textContent = t("failed");
     $("#diagnostics-status").className = "badge status-failed";
   }
 }
@@ -949,7 +1251,7 @@ function renderDiagnostics(data) {
     title.textContent = name;
     const badge = document.createElement("span");
     badge.className = `badge status-${check.status || "warning"}`;
-    badge.textContent = check.status || "warning";
+    badge.textContent = t(check.status || "warning");
     header.append(title, badge);
 
     const facts = document.createElement("dl");
@@ -965,7 +1267,7 @@ function renderDiagnostics(data) {
     const issues = document.createElement("div");
     issues.className = "diagnostic-issues";
     const issueList = Array.isArray(check.issues) ? check.issues : [];
-    issues.textContent = issueList.length ? issueList.join(" | ") : "No issues detected.";
+    issues.textContent = issueList.length ? issueList.join(" | ") : t("No issues detected.");
 
     card.append(header, facts, issues);
     grid.appendChild(card);
@@ -975,61 +1277,67 @@ function renderDiagnostics(data) {
 function diagnosticFacts(name, check) {
   if (name === "llm") {
     return [
-      ["Provider", check.provider || "-"],
-      ["Model", check.model || "-"],
-      ["API key", check.has_api_key ? "configured" : "missing"],
+      [t("Provider"), check.provider || "-"],
+      [t("Model"), check.model || "-"],
+      [t("API key"), check.has_api_key ? t("configured") : t("missing")],
     ];
   }
   if (name === "storage") {
     return [
-      ["Backend", check.backend || "-"],
-      ["Driver", check.driver_available == null ? "-" : String(check.driver_available)],
+      [t("Backend"), check.backend || "-"],
+      [t("Driver"), check.driver_available == null ? "-" : String(check.driver_available)],
       ["DSN", check.has_dsn == null ? "-" : String(check.has_dsn)],
     ];
   }
   if (name === "raw_archive") {
     return [
-      ["Backend", check.backend || "-"],
-      ["Bucket", check.bucket || "-"],
-      ["Driver", check.driver_available == null ? "-" : String(check.driver_available)],
+      [t("Backend"), check.backend || "-"],
+      [t("Bucket"), check.bucket || "-"],
+      [t("Driver"), check.driver_available == null ? "-" : String(check.driver_available)],
     ];
   }
   if (name === "graph") {
     return [
-      ["Backend", check.backend || "-"],
-      ["Path", check.path || "-"],
+      [t("Backend"), check.backend || "-"],
+      [t("Path"), check.path || "-"],
       ["URI", check.has_uri == null ? "-" : String(check.has_uri)],
-      ["Driver", check.driver_available == null ? "-" : String(check.driver_available)],
+      [t("Driver"), check.driver_available == null ? "-" : String(check.driver_available)],
     ];
   }
   if (name === "sources") {
     return [
-      ["Total", String(check.total ?? 0)],
-      ["Enabled", String(check.enabled ?? 0)],
-      ["Disabled", String(check.disabled ?? 0)],
+      [t("Total"), String(check.total ?? 0)],
+      [t("Enabled"), String(check.enabled ?? 0)],
+      [t("Disabled"), String(check.disabled ?? 0)],
     ];
   }
   if (name === "docker") {
     return [
-      ["Available", String(check.available ?? false)],
-      ["Version", check.version || "-"],
+      [t("Available"), String(check.available ?? false)],
+      [t("Version"), check.version || "-"],
       ["Compose", check.compose_version || "-"],
     ];
   }
   if (name === "git") {
     return [
-      ["Branch", check.branch || "-"],
-      ["Origin", check.origin || "-"],
-      ["Changes", String(check.pending_changes ?? 0)],
+      [t("Branch"), check.branch || "-"],
+      [t("Origin"), check.origin || "-"],
+      [t("Changes"), String(check.pending_changes ?? 0)],
     ];
   }
   return [
-    ["Version", check.version || "-"],
-    ["Executable", check.executable || "-"],
+    [t("Version"), check.version || "-"],
+    [t("Executable"), check.executable || "-"],
   ];
 }
 
 function wireActions() {
+  $$(".language-option").forEach((button) => {
+    button.addEventListener("click", () => {
+      setLanguage(button.dataset.language);
+    });
+  });
+
   $("#sample-button").addEventListener("click", () => {
     $("#document-input").value = sampleText;
   });
@@ -1077,7 +1385,8 @@ function wireActions() {
       });
       renderBrief(await getJson(`/api/intelligence-brief?${params.toString()}`));
     } catch (error) {
-      $("#brief-output").textContent = `Brief failed: ${error.message}`;
+      $("#brief-output").textContent =
+        state.language === "zh" ? `简报生成失败：${error.message}` : `Brief failed: ${error.message}`;
     } finally {
       setLoading(button, false);
     }
@@ -1088,12 +1397,16 @@ function wireActions() {
     try {
       const data = await loadLatestBrief();
       if (!data.ok) {
-        $("#brief-output").textContent = "No brief artifact found yet. Run Daily Cycle or Generate Brief first.";
+        $("#brief-output").textContent =
+          state.language === "zh"
+            ? "尚未找到简报产物。请先运行每日情报循环或生成简报。"
+            : "No brief artifact found yet. Run Daily Cycle or Generate Brief first.";
         return;
       }
       renderBrief(data.brief || { markdown: data.markdown, artifacts: data.artifacts });
     } catch (error) {
-      $("#brief-output").textContent = `Latest brief failed: ${error.message}`;
+      $("#brief-output").textContent =
+        state.language === "zh" ? `加载最新简报失败：${error.message}` : `Latest brief failed: ${error.message}`;
     } finally {
       setLoading(button, false);
     }
@@ -1300,7 +1613,8 @@ function wireActions() {
       const report = await loadSourceReport();
       $("#source-report-output").textContent = report.markdown || JSON.stringify(report, null, 2);
     } catch (error) {
-      $("#source-report-output").textContent = `Report failed: ${error.message}`;
+      $("#source-report-output").textContent =
+        state.language === "zh" ? `报告生成失败：${error.message}` : `Report failed: ${error.message}`;
     } finally {
       setLoading(button, false);
     }
@@ -1357,6 +1671,7 @@ function debounce(callback, delayMs) {
 
 wireNavigation();
 wireActions();
+setLanguage(localStorage.getItem("biopharma-agent-language") || "en");
 loadHealthAndConfig();
 $("#document-input").value = sampleText;
 renderResult({});

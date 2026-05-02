@@ -16,6 +16,8 @@ class WebApiTest(unittest.TestCase):
         body = (STATIC_DIR / "index.html").read_text(encoding="utf-8")
 
         self.assertIn("Biopharma Agent Workbench", body)
+        self.assertIn("lang-zh-button", body)
+        self.assertIn("中文", body)
         self.assertIn("source-state-status-filter", body)
         self.assertIn("source-state-alerts", body)
         self.assertIn("load-source-report-button", body)

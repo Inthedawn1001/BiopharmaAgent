@@ -119,6 +119,33 @@ button.ghost {
   border-color: #3c4a63;
 }
 
+.language-switcher {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  padding: 4px;
+  border: 1px solid #2f3b52;
+  border-radius: 8px;
+  background: #0f1724;
+}
+
+.language-option {
+  min-height: 34px;
+  border-radius: 6px;
+  background: transparent;
+  color: #d7dee9;
+  border: 1px solid transparent;
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.language-option:hover,
+.language-option.active {
+  background: #253044;
+  border-color: #3c4a63;
+  color: #fff;
+}
+
 .status-block {
   margin-top: auto;
   display: flex;
