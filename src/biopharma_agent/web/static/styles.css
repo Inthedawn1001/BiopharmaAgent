@@ -451,6 +451,24 @@ textarea {
   margin-top: 18px;
 }
 
+.settings-form {
+  border-top: 1px solid var(--line);
+  margin-top: 18px;
+  padding-top: 16px;
+}
+
+.secret-row {
+  display: grid;
+  grid-template-columns: minmax(280px, 1fr) auto;
+  gap: 12px;
+  align-items: end;
+  margin-top: 12px;
+}
+
+.secret-row label {
+  margin-bottom: 0;
+}
+
 .record-list {
   display: grid;
   gap: 10px;
@@ -910,6 +928,10 @@ textarea {
   .run-summary-grid,
   .detail-metrics,
   .diagnostics-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .secret-row {
     grid-template-columns: 1fr;
   }
 

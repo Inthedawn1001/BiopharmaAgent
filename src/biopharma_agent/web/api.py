@@ -18,6 +18,7 @@ from biopharma_agent.collection.runner import CollectionOptions, collect_sources
 from biopharma_agent.config import AgentSettings
 from biopharma_agent.contracts import utc_now
 from biopharma_agent.llm.factory import create_llm_provider
+from biopharma_agent.llm.types import ChatMessage, LLMRequest
 from biopharma_agent.ops.diagnostics import diagnose_environment
 from biopharma_agent.ops.factory import create_feedback_repository
 from biopharma_agent.ops.feedback import FeedbackRecord, LocalFeedbackRepository
@@ -29,6 +30,56 @@ from biopharma_agent.sources import get_default_source, get_source_profile, list
 from biopharma_agent.storage.factory import create_analysis_repository, create_source_state_store
 from biopharma_agent.storage.local import LocalAnalysisRepository
 from biopharma_agent.storage.repository import DocumentFilters
+
+LLM_PROVIDER_PRESETS: dict[str, dict[str, str]] = {
+    "openai": {
+        "label": "OpenAI",
+        "base_url": "https://api.openai.com/v1",
+        "model": "gpt-4.1-mini",
+    },
+    "deepseek": {
+        "label": "DeepSeek",
+        "provider": "custom",
+        "base_url": "https://api.deepseek.com",
+        "model": "deepseek-chat",
+    },
+    "custom": {
+        "label": "OpenAI-compatible",
+        "base_url": "http://localhost:8000/v1",
+        "model": "model-name",
+    },
+    "anthropic": {
+        "label": "Anthropic",
+        "base_url": "https://api.anthropic.com",
+        "model": "claude-3-5-sonnet-latest",
+    },
+    "gemini": {
+        "label": "Gemini",
+        "base_url": "https://generativelanguage.googleapis.com/v1beta",
+        "model": "gemini-1.5-flash",
+    },
+    "ollama": {
+        "label": "Ollama",
+        "base_url": "http://localhost:11434",
+        "model": "qwen2.5:7b",
+    },
+    "smoke": {
+        "label": "Smoke test",
+        "base_url": "local://smoke",
+        "model": "smoke-model",
+    },
+}
+
+_LLM_ENV_KEYS = {
+    "provider": "BIOPHARMA_LLM_PROVIDER",
+    "base_url": "BIOPHARMA_LLM_BASE_URL",
+    "model": "BIOPHARMA_LLM_MODEL",
+    "api_key": "BIOPHARMA_LLM_API_KEY",
+    "timeout_seconds": "BIOPHARMA_LLM_TIMEOUT_SECONDS",
+    "temperature": "BIOPHARMA_LLM_TEMPERATURE",
+    "max_tokens": "BIOPHARMA_LLM_MAX_TOKENS",
+    "chat_path": "BIOPHARMA_LLM_CHAT_PATH",
+}
 
 
 def health() -> dict[str, Any]:
@@ -53,10 +104,91 @@ def config() -> dict[str, Any]:
         "base_url": settings.base_url,
         "model": settings.model,
         "has_api_key": bool(settings.api_key),
+        "timeout_seconds": settings.timeout_seconds,
+        "temperature": settings.temperature,
+        "max_tokens": settings.max_tokens,
+        "chat_path": settings.chat_path or "/chat/completions",
+        "presets": LLM_PROVIDER_PRESETS,
         "storage_backend": app_settings.storage.backend,
         "analysis_store": app_settings.storage.analysis_jsonl_path
         if app_settings.storage.backend == "jsonl"
         else "postgres",
+    }
+
+
+def update_llm_config(payload: dict[str, Any]) -> dict[str, Any]:
+    """Update the process-local LLM configuration without persisting secrets."""
+
+    provider = str(payload.get("provider") or "").strip().lower()
+    if provider:
+        if provider == "deepseek":
+            provider = "custom"
+        if provider not in {"openai", "custom", "anthropic", "gemini", "ollama", "smoke"}:
+            raise ValueError("provider must be one of: openai, deepseek, custom, anthropic, gemini, ollama, smoke")
+        os.environ[_LLM_ENV_KEYS["provider"]] = provider
+
+    string_fields = {
+        "base_url": "base_url",
+        "model": "model",
+        "chat_path": "chat_path",
+    }
+    for field, env_field in string_fields.items():
+        if field not in payload:
+            continue
+        value = str(payload.get(field) or "").strip()
+        env_key = _LLM_ENV_KEYS[env_field]
+        if value:
+            os.environ[env_key] = value.rstrip("/") if field == "base_url" else value
+        else:
+            os.environ.pop(env_key, None)
+
+    numeric_fields = {
+        "timeout_seconds": (1.0, 600.0),
+        "temperature": (0.0, 2.0),
+        "max_tokens": (1.0, 20000.0),
+    }
+    for field, (minimum, maximum) in numeric_fields.items():
+        if field not in payload:
+            continue
+        raw_value = payload.get(field)
+        if raw_value in {"", None}:
+            os.environ.pop(_LLM_ENV_KEYS[field], None)
+            continue
+        value = float(raw_value)
+        if value < minimum or value > maximum:
+            raise ValueError(f"{field} must be between {minimum:g} and {maximum:g}")
+        if field == "max_tokens":
+            os.environ[_LLM_ENV_KEYS[field]] = str(int(value))
+        else:
+            os.environ[_LLM_ENV_KEYS[field]] = str(value)
+
+    if bool(payload.get("clear_api_key")):
+        os.environ.pop(_LLM_ENV_KEYS["api_key"], None)
+    elif "api_key" in payload:
+        api_key = str(payload.get("api_key") or "").strip()
+        if api_key:
+            os.environ[_LLM_ENV_KEYS["api_key"]] = api_key
+
+    return config()
+
+
+def llm_config_check() -> dict[str, Any]:
+    settings = AgentSettings.from_env().llm
+    provider = create_llm_provider(settings)
+    response = provider.chat(
+        LLMRequest(
+            messages=[ChatMessage(role="user", content="Return exactly: ok")],
+            max_tokens=8,
+            temperature=0,
+        )
+    )
+    return {
+        "ok": True,
+        "provider": response.provider,
+        "model": response.model,
+        "finish_reason": response.finish_reason,
+        "text_length": len(response.text or ""),
+        "has_usage": bool(response.usage),
     }
 
 

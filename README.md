@@ -262,7 +262,7 @@ Start the local web workbench:
 PYTHONPATH=src python3 -m biopharma_agent.cli serve --host 127.0.0.1 --port 8765
 ```
 
-Then visit `http://127.0.0.1:8765`. The workbench includes document analysis, document inbox, market intelligence briefs, run monitoring, manual fetch triggers, one-click daily intelligence cycles, LLM extraction, task routing, human feedback, feedback browsing, time-series analysis, model settings, and runtime diagnostics. The inbox supports filtering by source, event type, risk, and keyword, plus pagination and sorting. The market panel can summarize stored analysis results into a Markdown intelligence brief. The run monitor can trigger selected sources, run the daily cycle, enable incremental collection, show source health, failure diagnosis, prioritized source alerts, and generate a Markdown source health report from the source state and run log. It uses the configured LLM for real analysis by default. If the API key is missing, the job fails and writes a run log for troubleshooting. Runtime diagnostics check LLM, storage, raw archive, sources, Docker, and GitHub sync state. The diagnostics API reports whether credentials are present but never returns secret values. The sidebar language switcher can toggle the workbench between English and Chinese; the preference is saved in the browser.
+Then visit `http://127.0.0.1:8765`. The workbench includes document analysis, document inbox, market intelligence briefs, run monitoring, manual fetch triggers, one-click daily intelligence cycles, LLM extraction, task routing, human feedback, feedback browsing, time-series analysis, model settings, and runtime diagnostics. The inbox supports filtering by source, event type, risk, and keyword, plus pagination and sorting. The market panel can summarize stored analysis results into a Markdown intelligence brief. The run monitor can trigger selected sources, run the daily cycle, enable incremental collection, show source health, failure diagnosis, prioritized source alerts, and generate a Markdown source health report from the source state and run log. It uses the configured LLM for real analysis by default. If the API key is missing, the job fails and writes a run log for troubleshooting. The Model Settings page can switch providers, edit the OpenAI-compatible base URL/model, enter an API key, and run a live connection check. UI-entered keys are applied only to the current workbench process and are never returned by the API or written to repository files. Runtime diagnostics check LLM, storage, raw archive, sources, Docker, and GitHub sync state. The diagnostics API reports whether credentials are present but never returns secret values. The sidebar language switcher can toggle the workbench between English and Chinese; the preference is saved in the browser.
 
 See [docs/production_runbook.md](docs/production_runbook.md) for the recommended daily operating loop, storage profiles, Airflow settings, readiness gate, and failure handling.
 
@@ -300,7 +300,7 @@ PYTHONPATH=src python3 -m biopharma_agent.cli quality-gate \
   --require-source-state
 ```
 
-实际调用模型前，需要通过环境变量配置 `BIOPHARMA_LLM_PROVIDER`、`BIOPHARMA_LLM_BASE_URL`、`BIOPHARMA_LLM_MODEL` 和 `BIOPHARMA_LLM_API_KEY`。密钥只应保存在本地环境或密钥管理系统中，不要提交到仓库。
+实际调用模型前，可以通过环境变量配置 `BIOPHARMA_LLM_PROVIDER`、`BIOPHARMA_LLM_BASE_URL`、`BIOPHARMA_LLM_MODEL` 和 `BIOPHARMA_LLM_API_KEY`，也可以在工作台的“模型设置”页面选择 DeepSeek/OpenAI/OpenAI-compatible 等供应商并输入 API Key。前端输入的密钥只会写入当前服务进程的运行期环境，不会回传到 API 响应，也不会保存到仓库文件。密钥仍应只保存在本地环境、运行期表单或密钥管理系统中，不要提交到仓库。
 
 ## Architecture Entry Points
 

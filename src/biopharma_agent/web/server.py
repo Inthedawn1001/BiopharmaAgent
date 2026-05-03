@@ -167,6 +167,14 @@ class WorkbenchRequestHandler(BaseHTTPRequestHandler):
                 self._write_json(api.analyze_llm(payload))
                 return
 
+            if parsed.path == "/api/config/llm":
+                self._write_json(api.update_llm_config(payload))
+                return
+
+            if parsed.path == "/api/config/llm/check":
+                self._write_json(api.llm_config_check())
+                return
+
             if parsed.path == "/api/route":
                 self._write_json(api.route_text(payload))
                 return

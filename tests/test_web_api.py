@@ -1,9 +1,11 @@
 import tempfile
 import unittest
 import json
+import os
 from pathlib import Path
 from unittest.mock import patch
 
+from biopharma_agent.llm.types import LLMResponse
 from biopharma_agent.web import api
 from biopharma_agent.web.server import STATIC_DIR
 
@@ -30,6 +32,51 @@ class WebApiTest(unittest.TestCase):
         self.assertIn("select-healthy-sources-button", body)
         self.assertIn("retry-failed-sources-button", body)
         self.assertIn("load-latest-brief-button", body)
+        self.assertIn("llm-provider-select", body)
+        self.assertIn("llm-api-key-input", body)
+        self.assertIn("save-llm-config-button", body)
+        self.assertIn("check-llm-config-button", body)
+
+    def test_update_llm_config_sets_process_env_without_returning_secret(self):
+        keys = [
+            "BIOPHARMA_LLM_PROVIDER",
+            "BIOPHARMA_LLM_BASE_URL",
+            "BIOPHARMA_LLM_MODEL",
+            "BIOPHARMA_LLM_API_KEY",
+            "BIOPHARMA_LLM_TIMEOUT_SECONDS",
+        ]
+        with patch.dict(os.environ, {}, clear=True):
+            data = api.update_llm_config(
+                {
+                    "provider": "deepseek",
+                    "base_url": "https://api.deepseek.com",
+                    "model": "deepseek-chat",
+                    "api_key": "sk-test-secret",
+                    "timeout_seconds": 120,
+                }
+            )
+
+            self.assertEqual(os.environ["BIOPHARMA_LLM_PROVIDER"], "custom")
+            self.assertEqual(os.environ["BIOPHARMA_LLM_MODEL"], "deepseek-chat")
+            self.assertEqual(os.environ["BIOPHARMA_LLM_TIMEOUT_SECONDS"], "120.0")
+            self.assertTrue(data["has_api_key"])
+            self.assertNotIn("api_key", data)
+            self.assertNotIn("sk-test-secret", json.dumps(data))
+
+        for key in keys:
+            self.assertNotEqual(os.environ.get(key), "sk-test-secret")
+
+    def test_llm_config_check_uses_configured_provider(self):
+        class FakeProvider:
+            def chat(self, request):
+                return LLMResponse(text="ok", model="fake-model", provider="fake-provider")
+
+        with patch("biopharma_agent.web.api.create_llm_provider", return_value=FakeProvider()):
+            data = api.llm_config_check()
+
+        self.assertTrue(data["ok"])
+        self.assertEqual(data["provider"], "fake-provider")
+        self.assertEqual(data["model"], "fake-model")
 
     def test_deterministic_analysis(self):
         data = api.analyze_deterministic(

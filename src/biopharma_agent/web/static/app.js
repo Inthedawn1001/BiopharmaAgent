@@ -18,6 +18,8 @@ const state = {
   selectedProfile: "core_intelligence",
   sourceState: [],
   sourceStateData: null,
+  llmConfig: null,
+  llmPresets: {},
   language: "en",
 };
 
@@ -135,6 +137,19 @@ const translations = {
     "Provider": "供应商",
     "Base URL": "基础 URL",
     "API Key": "API 密钥",
+    "Runtime LLM Configuration": "运行期大模型配置",
+    "OpenAI-compatible": "OpenAI 兼容",
+    "Smoke test": "烟雾测试",
+    "Timeout Seconds": "超时时间（秒）",
+    "Temperature": "温度",
+    "Max Tokens": "最大 Tokens",
+    "Leave blank to keep current key": "留空则保留当前密钥",
+    "Clear existing key": "清除现有密钥",
+    "Save Runtime Settings": "保存运行期设置",
+    "Check LLM Connection": "检查大模型连接",
+    "No runtime changes yet.": "尚无运行期变更。",
+    "Runtime settings saved.": "运行期设置已保存。",
+    "LLM connection succeeded.": "大模型连接成功。",
     "Refresh Diagnostics": "刷新诊断",
     "Title, source, summary": "标题、来源、摘要",
     "Source or category": "来源或类别",
@@ -306,6 +321,9 @@ function refreshLanguageSensitiveViews() {
   }
   if (state.lastBrief) {
     renderBrief(state.lastBrief);
+  }
+  if (state.llmConfig) {
+    renderLlmConfig(state.llmConfig);
   }
 }
 
@@ -992,10 +1010,7 @@ async function loadHealthAndConfig() {
 
   try {
     const config = await fetch("/api/config").then((response) => response.json());
-    $("#config-provider").textContent = config.provider;
-    $("#config-model").textContent = config.model;
-    $("#config-base-url").textContent = config.base_url;
-    $("#config-api-key").textContent = config.has_api_key ? t("Configured") : t("Missing");
+    renderLlmConfig(config);
   } catch {
     $("#config-provider").textContent = t("Unavailable");
   }
@@ -1004,6 +1019,84 @@ async function loadHealthAndConfig() {
   await loadSourceProfiles();
   await loadSourceState();
   await loadDiagnostics();
+}
+
+function renderLlmConfig(config) {
+  state.llmConfig = config;
+  state.llmPresets = config.presets || {};
+  $("#config-provider").textContent = config.provider || "-";
+  $("#config-model").textContent = config.model || "-";
+  $("#config-base-url").textContent = config.base_url || "-";
+  $("#config-api-key").textContent = config.has_api_key ? t("Configured") : t("Missing");
+
+  const providerSelect = $("#llm-provider-select");
+  if (!providerSelect) {
+    return;
+  }
+  renderLlmProviderOptions(providerSelect, state.llmPresets);
+  providerSelect.value = selectedLlmPresetKey(config);
+  $("#llm-model-input").value = config.model || "";
+  $("#llm-base-url-input").value = config.base_url || "";
+  $("#llm-timeout-input").value = String(config.timeout_seconds || 60);
+  $("#llm-temperature-input").value = String(config.temperature ?? 0.1);
+  $("#llm-max-tokens-input").value = String(config.max_tokens || 4000);
+  $("#llm-api-key-input").value = "";
+  $("#llm-clear-key-checkbox").checked = false;
+}
+
+function renderLlmProviderOptions(select, presets) {
+  const current = select.value;
+  const entries = Object.entries(presets || {});
+  if (!entries.length) {
+    return;
+  }
+  select.innerHTML = "";
+  for (const [key, preset] of entries) {
+    const option = document.createElement("option");
+    option.value = key;
+    option.textContent = t(preset.label || key);
+    select.appendChild(option);
+  }
+  if (current && Array.from(select.options).some((option) => option.value === current)) {
+    select.value = current;
+  }
+}
+
+function selectedLlmPresetKey(config) {
+  const baseUrl = String(config.base_url || "").replace(/\/$/, "");
+  if (config.provider === "custom" && baseUrl === "https://api.deepseek.com") {
+    return "deepseek";
+  }
+  if (state.llmPresets[config.provider]) {
+    return config.provider;
+  }
+  return "custom";
+}
+
+function applySelectedLlmPreset() {
+  const key = $("#llm-provider-select").value;
+  const preset = state.llmPresets[key] || {};
+  if (preset.base_url) {
+    $("#llm-base-url-input").value = preset.base_url;
+  }
+  if (preset.model) {
+    $("#llm-model-input").value = preset.model;
+  }
+}
+
+function llmConfigPayload() {
+  const selected = $("#llm-provider-select").value;
+  const preset = state.llmPresets[selected] || {};
+  return {
+    provider: preset.provider || selected,
+    base_url: $("#llm-base-url-input").value,
+    model: $("#llm-model-input").value,
+    timeout_seconds: Number($("#llm-timeout-input").value || 60),
+    temperature: Number($("#llm-temperature-input").value || 0.1),
+    max_tokens: Number($("#llm-max-tokens-input").value || 4000),
+    api_key: $("#llm-api-key-input").value,
+    clear_api_key: $("#llm-clear-key-checkbox").checked,
+  };
 }
 
 async function loadSources() {
@@ -1353,6 +1446,41 @@ function wireActions() {
   });
   $("#route-button").addEventListener("click", (event) => {
     runAnalysis("/api/route", event.currentTarget);
+  });
+  $("#llm-provider-select").addEventListener("change", applySelectedLlmPreset);
+  $("#save-llm-config-button").addEventListener("click", async (event) => {
+    const button = event.currentTarget;
+    setLoading(button, true);
+    try {
+      const config = await requestJson("/api/config/llm", llmConfigPayload());
+      renderLlmConfig(config);
+      $("#llm-config-output").textContent = JSON.stringify(
+        { ok: true, message: t("Runtime settings saved."), config },
+        null,
+        2,
+      );
+      await loadDiagnostics();
+    } catch (error) {
+      $("#llm-config-output").textContent = JSON.stringify({ ok: false, error: error.message }, null, 2);
+    } finally {
+      setLoading(button, false);
+    }
+  });
+  $("#check-llm-config-button").addEventListener("click", async (event) => {
+    const button = event.currentTarget;
+    setLoading(button, true);
+    try {
+      const result = await requestJson("/api/config/llm/check", {});
+      $("#llm-config-output").textContent = JSON.stringify(
+        { message: t("LLM connection succeeded."), ...result },
+        null,
+        2,
+      );
+    } catch (error) {
+      $("#llm-config-output").textContent = JSON.stringify({ ok: false, error: error.message }, null, 2);
+    } finally {
+      setLoading(button, false);
+    }
   });
   $("#series-button").addEventListener("click", async (event) => {
     const button = event.currentTarget;

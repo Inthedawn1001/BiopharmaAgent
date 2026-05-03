@@ -416,6 +416,58 @@
               <strong id="config-api-key">-</strong>
             </article>
           </div>
+          <div class="settings-form">
+            <div class="section-title">Runtime LLM Configuration</div>
+            <div class="form-grid">
+              <label>
+                Provider
+                <select id="llm-provider-select">
+                  <option value="openai">OpenAI</option>
+                  <option value="deepseek">DeepSeek</option>
+                  <option value="custom">OpenAI-compatible</option>
+                  <option value="anthropic">Anthropic</option>
+                  <option value="gemini">Gemini</option>
+                  <option value="ollama">Ollama</option>
+                  <option value="smoke">Smoke test</option>
+                </select>
+              </label>
+              <label>
+                Model
+                <input id="llm-model-input" value="deepseek-chat" />
+              </label>
+              <label>
+                Base URL
+                <input id="llm-base-url-input" value="https://api.deepseek.com" />
+              </label>
+              <label>
+                Timeout Seconds
+                <input id="llm-timeout-input" type="number" min="1" max="600" value="120" />
+              </label>
+              <label>
+                Temperature
+                <input id="llm-temperature-input" type="number" min="0" max="2" step="0.1" value="0.1" />
+              </label>
+              <label>
+                Max Tokens
+                <input id="llm-max-tokens-input" type="number" min="1" max="20000" value="4000" />
+              </label>
+            </div>
+            <div class="secret-row">
+              <label>
+                API Key
+                <input id="llm-api-key-input" type="password" autocomplete="off" placeholder="Leave blank to keep current key" />
+              </label>
+              <label class="inline-check">
+                <input id="llm-clear-key-checkbox" type="checkbox" />
+                Clear existing key
+              </label>
+            </div>
+            <div class="button-row">
+              <button id="save-llm-config-button">Save Runtime Settings</button>
+              <button id="check-llm-config-button" class="secondary">Check LLM Connection</button>
+            </div>
+            <pre id="llm-config-output" class="json-view compact">No runtime changes yet.</pre>
+          </div>
         </section>
 
         <section class="panel" id="panel-diagnostics">
