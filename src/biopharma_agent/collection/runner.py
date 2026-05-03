@@ -98,7 +98,14 @@ def collect_source(
             state_store=state_store,
         )
         summary["selected"] = len(raw_documents)
-        if int(summary.get("details_fetched", 0) or 0) > 0:
+        if options.fetch_details and summary.get("collector") == "feed":
+            summary["details_fetched"] = sum(
+                1 for raw in raw_documents if raw.metadata.get("collector") == "feed_detail"
+            )
+            summary["detail_fallbacks"] = sum(
+                1 for raw in raw_documents if raw.metadata.get("detail_fetch_failed")
+            )
+        elif int(summary.get("details_fetched", 0) or 0) > 0:
             summary["details_fetched"] = len(raw_documents)
         summary["incremental"] = options.incremental
         summary["skipped_seen"] = skipped_seen
@@ -171,7 +178,16 @@ def _collect_feed(
             "feed_url": result.feed_url,
             "fetched": len(result.items),
             "selected": len(raw_documents),
-            "details_fetched": len(raw_documents) if options.fetch_details else 0,
+            "details_fetched": (
+                sum(1 for raw in raw_documents if raw.metadata.get("collector") == "feed_detail")
+                if options.fetch_details
+                else 0
+            ),
+            "detail_fallbacks": (
+                sum(1 for raw in raw_documents if raw.metadata.get("detail_fetch_failed"))
+                if options.fetch_details
+                else 0
+            ),
             "clean_html_details": bool(options.fetch_details and options.clean_html_details),
             "items": [
                 {"title": item.title, "link": item.link, "published": item.published}

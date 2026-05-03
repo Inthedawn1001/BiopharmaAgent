@@ -48,26 +48,7 @@ class FeedFetchResult:
 
     def to_raw_documents(self, limit: int | None = None) -> list[RawDocument]:
         selected = self.items[:limit] if limit is not None else self.items
-        documents: list[RawDocument] = []
-        for item in selected:
-            text = "\n\n".join(part for part in [item.title, item.summary, item.link] if part)
-            documents.append(
-                RawDocument(
-                    source=self.source,
-                    document_id=_stable_document_id(self.source.name, item.guid or item.link or item.title),
-                    collected_at=utc_now(),
-                    url=item.link or self.feed_url,
-                    title=item.title,
-                    raw_text=text,
-                    metadata={
-                        "content_type": "feed_item",
-                        "feed_url": self.feed_url,
-                        "published": item.published,
-                        "guid": item.guid,
-                    },
-                )
-            )
-        return documents
+        return [_feed_item_raw_document(self.source, self.feed_url, item) for item in selected]
 
     def fetch_detail_documents(
         self,
@@ -83,11 +64,36 @@ class FeedFetchResult:
         for index, item in enumerate(selected):
             if detail_delay_seconds > 0 and index > 0 and sleep is not None:
                 sleep(detail_delay_seconds)
-            fetched = fetcher.fetch(
-                item.link or self.feed_url,
-                source=self.source,
-                document_id=_stable_document_id(self.source.name, item.guid or item.link or item.title),
-            )
+            try:
+                fetched = fetcher.fetch(
+                    item.link or self.feed_url,
+                    source=self.source,
+                    document_id=_stable_document_id(self.source.name, item.guid or item.link or item.title),
+                )
+            except Exception as exc:
+                fallback = _feed_item_raw_document(self.source, self.feed_url, item)
+                metadata = dict(fallback.metadata)
+                metadata.update(
+                    {
+                        "collector": "feed_item_fallback",
+                        "detail_fetch_failed": True,
+                        "detail_fetch_error": str(exc),
+                        "detail_url": item.link or self.feed_url,
+                    }
+                )
+                documents.append(
+                    RawDocument(
+                        source=fallback.source,
+                        document_id=fallback.document_id,
+                        collected_at=fallback.collected_at,
+                        url=fallback.url,
+                        title=fallback.title,
+                        raw_text=fallback.raw_text,
+                        raw_uri=fallback.raw_uri,
+                        metadata=metadata,
+                    )
+                )
+                continue
             raw = fetched.raw_document
             metadata = dict(raw.metadata)
             raw_text = raw.raw_text
@@ -212,6 +218,25 @@ def _find_text(element: ET.Element, local_name: str) -> str:
         if _strip_ns(child.tag) == local_name:
             return child.text or ""
     return ""
+
+
+def _feed_item_raw_document(source: SourceRef, feed_url: str, item: FeedItem) -> RawDocument:
+    text = "\n\n".join(part for part in [item.title, item.summary, item.link] if part)
+    return RawDocument(
+        source=source,
+        document_id=_stable_document_id(source.name, item.guid or item.link or item.title),
+        collected_at=utc_now(),
+        url=item.link or feed_url,
+        title=item.title,
+        raw_text=text,
+        metadata={
+            "content_type": "feed_item",
+            "collector": "feed_item",
+            "feed_url": feed_url,
+            "published": item.published,
+            "guid": item.guid,
+        },
+    )
 
 
 def _strip_ns(tag: str) -> str:

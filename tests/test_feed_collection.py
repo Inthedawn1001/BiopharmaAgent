@@ -51,6 +51,11 @@ class FakeFeedTransport:
         return 200, headers_obj, RSS_FIXTURE.encode("utf-8")
 
 
+class BlockingDetailFetcher:
+    def fetch(self, url, *, source, document_id):
+        raise PermissionError(f"robots.txt disallows fetching {url}")
+
+
 class FeedCollectionTest(unittest.TestCase):
     def test_parse_rss(self):
         items = parse_feed(RSS_FIXTURE)
@@ -78,6 +83,18 @@ class FeedCollectionTest(unittest.TestCase):
         self.assertEqual(result.status_code, 200)
         self.assertEqual(documents[0].source.name, "test_feed")
         self.assertIn("FDA approves test therapy", documents[0].raw_text)
+
+    def test_feed_detail_fetch_falls_back_to_feed_item_when_blocked(self):
+        source = SourceRef(name="test_feed", kind="regulatory_feed", url="https://example.test/rss")
+        result = FeedFetcher(transport=FakeFeedTransport()).fetch(source)
+
+        documents = result.fetch_detail_documents(BlockingDetailFetcher(), limit=1)
+
+        self.assertEqual(len(documents), 1)
+        self.assertEqual(documents[0].metadata["collector"], "feed_item_fallback")
+        self.assertTrue(documents[0].metadata["detail_fetch_failed"])
+        self.assertIn("robots.txt disallows", documents[0].metadata["detail_fetch_error"])
+        self.assertIn("Approval details", documents[0].raw_text)
 
     def test_run_fetch_sources_job_fetches_without_analysis(self):
         source = SourceRef(name="fda_press_releases", kind="regulatory_feed", url="https://example.test/rss")
@@ -113,6 +130,50 @@ class FeedCollectionTest(unittest.TestCase):
         self.assertEqual(summary[0]["selected"], 1)
         self.assertEqual(summary[0]["analyzed"], 0)
         self.assertEqual(summary[0]["category"], "regulatory_press_release")
+
+    def test_fetch_summary_counts_detail_fallbacks(self):
+        source = SourceRef(
+            name="custom",
+            kind="industry_news_feed",
+            url="https://example.test/rss",
+            metadata={"category": "custom_category"},
+        )
+        fetch_result = FeedFetchResult(
+            source=source,
+            feed_url=source.url or "",
+            status_code=200,
+            items=[
+                FeedItem(
+                    title="News",
+                    link="https://example.test/news",
+                    summary="Summary",
+                    published=None,
+                    guid="item",
+                )
+            ],
+        )
+
+        with patch("biopharma_agent.collection.runner.FeedFetcher") as fetcher_class, patch(
+            "biopharma_agent.collection.runner.HTTPSourceFetcher",
+            return_value=BlockingDetailFetcher(),
+        ):
+            fetcher_class.return_value.fetch.return_value = fetch_result
+            summary = _fetch_and_optionally_analyze_sources(
+                sources=[source],
+                limit=1,
+                analyze=False,
+                provider=None,
+                archive_dir=Path("unused/raw"),
+                output=Path("unused/insights.jsonl"),
+                graph_dir=Path("unused/graph"),
+                no_graph=True,
+                fetch_details=True,
+                update_state=False,
+            )
+
+        self.assertEqual(summary[0]["selected"], 1)
+        self.assertEqual(summary[0]["details_fetched"], 0)
+        self.assertEqual(summary[0]["detail_fallbacks"], 1)
 
     def test_default_sources_can_filter_by_category_and_are_priority_sorted(self):
         regulatory = list_default_sources(category="regulatory_press_release")
