@@ -1,0 +1,9 @@
+[build]
+  publish = "src/biopharma_agent/web/static"
+  functions = "netlify/functions"
+
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/api-proxy/:splat"
+  status = 200
+
